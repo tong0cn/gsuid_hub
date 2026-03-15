@@ -500,8 +500,8 @@ export default function Dashboard() {
         {/* Group Command Triggers Stacked Bar Chart */}
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <UsersRound className="w-4 h-4" />
+            <CardTitle className="flex items-center gap-2">
+              <UsersRound className="w-5 h-5" />
               群组命令触发量
             </CardTitle>
           </CardHeader>
@@ -535,8 +535,8 @@ export default function Dashboard() {
         {/* Personal Command Triggers Stacked Bar Chart */}
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="w-4 h-4" />
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
               个人命令触发量
             </CardTitle>
           </CardHeader>

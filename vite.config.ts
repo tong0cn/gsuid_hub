@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import fs from "fs";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -22,7 +23,34 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    // 自定义插件：构建完成后生成 version.json
+    {
+      name: "generate-version-json",
+      closeBundle() {
+        // 读取 package.json 获取版本号
+        const packageJsonPath = path.resolve(__dirname, "package.json");
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+        
+        const versionInfo = {
+          version: packageJson.version || "0.0.0",
+          buildTime: new Date().toISOString(),
+          mode: mode,
+        };
+        
+        // 写入 version.json 到 dist 目录
+        const distPath = path.resolve(__dirname, "dist");
+        fs.writeFileSync(
+          path.join(distPath, "version.json"),
+          JSON.stringify(versionInfo, null, 2),
+          "utf-8"
+        );
+        console.log(`[generate-version-json] Generated version.json:`, versionInfo);
+      },
+    },
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
