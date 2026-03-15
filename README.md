@@ -189,4 +189,4 @@ import Component from '@/components/xxx';
 
 - 本项目仅供学习使用，请勿用于商业用途
 - [爱发电](https://afdian.com/a/KimigaiiWuyi)
-- [GPL-3.0 License](https://github.com/Genshin-bots/gsuid_core/blob/master/LICENSE) ©[@KimigaiiWuyi](https://github.com/KimigaiiWuyi)
+- [GPL-3.0 License](https://github.com/Genshin-bots/gsuid_hub/blob/master/LICENSE) ©[@KimigaiiWuyi](https://github.com/KimigaiiWuyi)
