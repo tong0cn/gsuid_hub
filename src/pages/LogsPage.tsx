@@ -52,6 +52,7 @@ export default function LogsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<LogLevel>('all');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [infoCount, setInfoCount] = useState(0);
@@ -88,9 +89,10 @@ export default function LogsPage() {
       setLogs(data.rows);
     } catch (error) {
       console.error('Failed to fetch logs:', error);
+      const errorMessage = error instanceof Error ? error.message : '无法加载日志';
       toast({
         title: '加载失败',
-        description: '无法加载日志',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -108,6 +110,29 @@ export default function LogsPage() {
     const interval = setInterval(fetchLogs, 30000);
     return () => clearInterval(interval);
   }, [fetchLogs]);
+
+  // Fetch available dates on mount
+  useEffect(() => {
+    const fetchAvailableDates = async () => {
+      try {
+        const dates = await logsApi.getAvailableDates();
+        setAvailableDates(dates);
+        
+        // If selected date is not available, select the most recent available date
+        if (dates.length > 0) {
+          const selectedDateStr = selectedDate.toISOString().split('T')[0];
+          if (!dates.includes(selectedDateStr)) {
+            const mostRecentDate = new Date(dates[0]);
+            setSelectedDate(mostRecentDate);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch available dates:', error);
+      }
+    };
+    
+    fetchAvailableDates();
+  }, []);
 
   const filteredLogs = useMemo(() => {
     if (!searchTerm) return logs;
@@ -273,6 +298,10 @@ export default function LogsPage() {
                   defaultMonth={selectedDate}
                   initialFocus
                   className="pointer-events-auto"
+                  disabled={(date) => {
+                    const dateStr = date.toISOString().split('T')[0];
+                    return availableDates.length > 0 && !availableDates.includes(dateStr);
+                  }}
                 />
               </PopoverContent>
             </Popover>

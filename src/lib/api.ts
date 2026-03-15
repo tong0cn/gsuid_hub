@@ -527,6 +527,9 @@ export const logsApi = {
       debug_count?: number;
     }>(`/api/logs/stats?${query.toString()}`);
   },
+
+  getAvailableDates: () =>
+    api.get<string[]>('/api/logs/available-dates'),
 };
 
 // ===================
