@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Search, RefreshCw, Download, ChevronDown, AlertCircle, AlertTriangle, Info, Bug, Loader2, FileText, Calendar } from 'lucide-react';
 import { logsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { StructuredDataViewer } from '@/components/StructuredDataViewer';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'all';
 
@@ -339,7 +340,9 @@ export default function LogsPage() {
                                   {log.timestamp ? new Date(log.timestamp).toLocaleString('zh-CN') : ''}
                                 </span>
                               </div>
-                              <p className="mt-1 text-sm break-all">{log.message}</p>
+                              <div className="mt-1 text-sm break-all">
+                                <StructuredDataViewer data={log.message} />
+                              </div>
                             </div>
                             {log.details && (
                               <ChevronDown

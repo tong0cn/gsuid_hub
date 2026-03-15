@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Terminal, Trash2, Download, Circle } from "lucide-react";
+import { StructuredDataViewer } from "@/components/StructuredDataViewer";
+import { remoteCommandApi } from "@/lib/api";
 
 interface LogEntry {
   id: string;
@@ -11,108 +13,6 @@ interface LogEntry {
   content: string;
   timestamp: Date;
 }
-
-// Mock command responses
-const executeCommand = (command: string): { type: "output" | "error"; content: string } => {
-  const cmd = command.trim().toLowerCase();
-
-  if (cmd === "help") {
-    return {
-      type: "output",
-      content: `可用命令:
-  help          - 显示帮助信息
-  status        - 查看系统状态
-  users         - 查看在线用户
-  plugins       - 列出已安装插件
-  tasks         - 查看运行中的任务
-  clear         - 清空控制台
-  version       - 显示版本信息
-  uptime        - 显示运行时间
-  memory        - 显示内存使用情况`,
-    };
-  }
-
-  if (cmd === "status") {
-    return {
-      type: "output",
-      content: `系统状态: 运行中 ✓
-CPU 使用率: 23.5%
-内存使用率: 45.2%
-磁盘使用率: 67.8%
-网络延迟: 12ms`,
-    };
-  }
-
-  if (cmd === "users") {
-    return {
-      type: "output",
-      content: `在线用户: 128
-  - 活跃会话: 89
-  - 空闲会话: 39
-  - 管理员在线: 3`,
-    };
-  }
-
-  if (cmd === "plugins") {
-    return {
-      type: "output",
-      content: `已安装插件 (5):
-  1. 数据分析引擎 v2.1.0 [运行中]
-  2. 邮件通知服务 v1.5.3 [运行中]
-  3. 备份管理器 v3.0.1 [运行中]
-  4. 日志收集器 v1.2.0 [运行中]
-  5. 安全扫描器 v2.0.0 [已停止]`,
-    };
-  }
-
-  if (cmd === "tasks") {
-    return {
-      type: "output",
-      content: `运行中的任务 (3):
-  [PID 1024] 数据同步任务 - 运行中 (5分钟前启动)
-  [PID 1089] 日志轮转任务 - 运行中 (12分钟前启动)
-  [PID 1156] 缓存清理任务 - 运行中 (1小时前启动)`,
-    };
-  }
-
-  if (cmd === "version") {
-    return {
-      type: "output",
-      content: `Admin Console v1.0.0
-Build: 2024.12.27
-Node.js: v20.10.0
-Platform: Linux x64`,
-    };
-  }
-
-  if (cmd === "uptime") {
-    return {
-      type: "output",
-      content: `系统运行时间: 15天 8小时 32分钟
-上次重启: 2024-12-12 03:28:15`,
-    };
-  }
-
-  if (cmd === "memory") {
-    return {
-      type: "output",
-      content: `内存使用情况:
-  总内存: 16.0 GB
-  已使用: 7.2 GB (45.2%)
-  可用: 8.8 GB
-  缓存: 2.1 GB`,
-    };
-  }
-
-  if (cmd === "") {
-    return { type: "output", content: "" };
-  }
-
-  return {
-    type: "error",
-    content: `未知命令: ${command}\n输入 'help' 查看可用命令`,
-  };
-};
 
 let logCounter = 0;
 
@@ -201,23 +101,69 @@ export default function ConsolePage() {
   }, []);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim()) return;
 
+      const command = input.trim();
+      
+      // 首先添加命令输入
       const newLogs: LogEntry[] = [
         {
           id: (++logCounter).toString(),
           type: "input",
-          content: `$ ${input}`,
+          content: `$ ${command}`,
           timestamp: new Date(),
         },
       ];
 
       setLogs((prev) => [...prev, ...newLogs]);
-      setCommandHistory((prev) => [input, ...prev].slice(0, 50));
+      setCommandHistory((prev) => [command, ...prev].slice(0, 50));
       setHistoryIndex(-1);
       setInput("");
+
+      // 处理 clear 命令（前端本地清空）
+      if (command.toLowerCase() === "clear") {
+        setLogs([]);
+        return;
+      }
+
+      // 调用后端 API 执行命令
+      try {
+        const response = await remoteCommandApi.execute(command);
+        
+        const outputLogs: LogEntry[] = [];
+        
+        if (response.output) {
+          outputLogs.push({
+            id: (++logCounter).toString(),
+            type: "output",
+            content: response.output,
+            timestamp: new Date(),
+          });
+        }
+        
+        if (response.error) {
+          outputLogs.push({
+            id: (++logCounter).toString(),
+            type: "error",
+            content: response.error,
+            timestamp: new Date(),
+          });
+        }
+        
+        if (outputLogs.length > 0) {
+          setLogs((prev) => [...prev, ...outputLogs]);
+        }
+      } catch (error) {
+        const errorLog: LogEntry = {
+          id: (++logCounter).toString(),
+          type: "error",
+          content: error instanceof Error ? error.message : "命令执行失败",
+          timestamp: new Date(),
+        };
+        setLogs((prev) => [...prev, errorLog]);
+      }
     },
     [input],
   );
@@ -340,7 +286,9 @@ export default function ConsolePage() {
                   <span className={`${badge.bg} ${badge.text} text-xs px-1.5 py-0.5 rounded font-semibold shrink-0`}>
                     {badge.label}
                   </span>
-                  <span className={getLogColor(log.type)}>{log.content}</span>
+                  <div className={getLogColor(log.type)}>
+                    <StructuredDataViewer data={log.content} />
+                  </div>
                 </div>
               );
             })}

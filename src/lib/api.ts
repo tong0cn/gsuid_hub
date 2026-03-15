@@ -710,6 +710,20 @@ export const systemApi = {
 };
 
 // ===================
+// Remote Command APIs
+// ===================
+
+export interface RemoteCommandResponse {
+  output: string;
+  error?: string;
+}
+
+export const remoteCommandApi = {
+  execute: (command: string) =>
+    api.post<RemoteCommandResponse>('/api/remoteCommand', { command }),
+};
+
+// ===================
 // Theme APIs
 // ===================
 
