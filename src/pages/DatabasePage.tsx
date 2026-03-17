@@ -14,8 +14,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Search, Plus, Pencil, Trash2, Filter, RefreshCw, ChevronLeft, ChevronRight, Settings, Database } from 'lucide-react';
 import { databaseApi, PluginDatabaseInfo, DatabaseTableInfo, DatabaseColumn, PaginatedData } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function DatabasePage() {
+  const { t } = useLanguage();
   const [plugins, setPlugins] = useState<PluginDatabaseInfo[]>([]);
   const [selectedPluginId, setSelectedPluginId] = useState<string>('');
   const [activeTable, setActiveTable] = useState<string>('');
@@ -46,8 +48,8 @@ export default function DatabasePage() {
     } catch (error) {
       console.error('Failed to fetch plugins:', error);
       toast({
-        title: '加载失败',
-        description: '无法加载插件列表',
+        title: t('common.loadFailed'),
+        description: t('database.loadPluginsFailed') || 'Unable to load plugin list',
         variant: 'destructive'
       });
     } finally {
@@ -91,8 +93,8 @@ export default function DatabasePage() {
     } catch (error) {
       console.error('Failed to fetch table data:', error);
       toast({
-        title: '加载失败',
-        description: '无法加载数据',
+        title: t('database.loadFailed'),
+        description: t('database.loadDataFailed'),
         variant: 'destructive'
       });
     }
@@ -153,12 +155,12 @@ export default function DatabasePage() {
     try {
       if (isCreating) {
         await databaseApi.createRecord(activeTable, editingItem);
-        toast({ title: '创建成功', description: '新记录已添加' });
+        toast({ title: t('database.createSuccess'), description: t('database.recordCreated') });
       } else {
         const pkName = tableMetadata?.pk_name || 'id';
         const recordId = editingItem[pkName];
         await databaseApi.updateRecord(activeTable, recordId as string | number, editingItem);
-        toast({ title: '更新成功', description: '记录已更新' });
+        toast({ title: t('database.updateSuccess'), description: t('database.recordUpdated') });
       }
       fetchTableData(activeTable, currentPage, perPage);
       setIsDialogOpen(false);
@@ -167,8 +169,8 @@ export default function DatabasePage() {
     } catch (error) {
       console.error('Failed to save record:', error);
       toast({
-        title: '保存失败',
-        description: '无法保存记录',
+        title: t('database.saveFailed'),
+        description: t('database.saveRecordFailed'),
         variant: 'destructive'
       });
     }
@@ -181,13 +183,13 @@ export default function DatabasePage() {
       const pkName = tableMetadata.pk_name || 'id';
       const recordId = item[pkName];
       await databaseApi.deleteRecord(activeTable, recordId as string | number);
-      toast({ title: '删除成功', description: '记录已删除' });
+      toast({ title: t('database.deleteSuccess'), description: t('database.recordDeleted') });
       fetchTableData(activeTable, currentPage, perPage);
     } catch (error) {
       console.error('Failed to delete record:', error);
       toast({
-        title: '删除失败',
-        description: '无法删除记录',
+        title: t('database.deleteFailed'),
+        description: t('database.deleteRecordFailed'),
         variant: 'destructive'
       });
     }
@@ -210,21 +212,21 @@ export default function DatabasePage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Database className="w-8 h-8" />
-          数据库管理
+          {t('database.title')}
         </h1>
-        <p className="text-muted-foreground mt-1">浏览和管理数据库表</p>
+        <p className="text-muted-foreground mt-1">{t('database.description')}</p>
       </div>
 
       <Card className="glass-card">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <Label className="text-sm font-medium min-w-[80px]">选择插件</Label>
+            <Label className="text-sm font-medium min-w-[80px]">{t('database.selectPlugin')}</Label>
             <Select
               value={selectedPluginId}
               onValueChange={setSelectedPluginId}
             >
               <SelectTrigger className="w-full sm:w-[300px]">
-                <SelectValue placeholder="选择插件" />
+                <SelectValue placeholder={t('database.selectPlugin')} />
               </SelectTrigger>
               <SelectContent>
                 {plugins.map((plugin) => (
@@ -248,7 +250,7 @@ export default function DatabasePage() {
       {selectedPlugin && selectedPlugin.tables.length > 0 && (
         <Card className="glass-card">
           <CardContent className="p-4">
-            <Label className="text-sm font-medium mb-3 block">选择数据库表</Label>
+            <Label className="text-sm font-medium mb-3 block">{t('database.selectTable')}</Label>
             <ToggleGroup type="single" value={activeTable} onValueChange={setActiveTable} className="flex flex-wrap gap-1">
               {selectedPlugin.tables.map((table) => (
                 <ToggleGroupItem key={table.table_name} value={table.table_name} className="px-4 py-2">
@@ -268,11 +270,11 @@ export default function DatabasePage() {
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => fetchTableData(activeTable, currentPage, perPage)} variant="outline" size="sm">
                   <RefreshCw className="h-4 w-4 mr-1" />
-                  刷新
+                  {t('database.refresh')}
                 </Button>
                 <Button onClick={handleCreate} size="sm">
                   <Plus className="h-4 w-4 mr-1" />
-                  新增
+                  {t('database.add')}
                 </Button>
               </div>
             </div>
@@ -283,7 +285,7 @@ export default function DatabasePage() {
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="搜索..."
+                  placeholder={t('database.search')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full sm:w-[200px]"
@@ -294,7 +296,7 @@ export default function DatabasePage() {
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select value={filterColumn} onValueChange={setFilterColumn}>
                   <SelectTrigger className="w-full sm:w-[150px]">
-                    <SelectValue placeholder="筛选列" />
+                    <SelectValue placeholder={t('database.filterColumn')} />
                   </SelectTrigger>
                   <SelectContent>
                     {columns.map((col) => (
@@ -337,14 +339,14 @@ export default function DatabasePage() {
                           )}
                         </TableHead>
                       ))}
-                      <TableHead className="w-[100px] whitespace-nowrap">操作</TableHead>
+                      <TableHead className="w-[100px] whitespace-nowrap">{t('database.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredData.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={columns.length + 1} className="text-center text-muted-foreground">
-                          暂无数据
+                          {t('database.noData')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -354,7 +356,7 @@ export default function DatabasePage() {
                             <TableCell key={col.name} className="whitespace-nowrap">
                               {typeof item[col.name] === 'boolean' ? (
                                 <Badge variant={item[col.name] ? 'default' : 'secondary'}>
-                                  {item[col.name] ? '是' : '否'}
+                                  {item[col.name] ? t('database.yes') : t('database.no')}
                                 </Badge>
                               ) : (
                                 String(item[col.name] ?? '')

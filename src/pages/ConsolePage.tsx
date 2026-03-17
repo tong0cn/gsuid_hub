@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Terminal, Trash2, Download, Circle } from "lucide-react";
 import { StructuredDataViewer } from "@/components/StructuredDataViewer";
 import { remoteCommandApi } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LogEntry {
   id: string;
@@ -17,6 +18,7 @@ interface LogEntry {
 let logCounter = 0;
 
 export default function ConsolePage() {
+  const { t } = useLanguage();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [input, setInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -72,7 +74,7 @@ export default function ConsolePage() {
         }
 
         setLogs((prev) => {
-          // 最多保留400条日志，避免内存占用过高
+          // Keep max 400 logs to avoid memory issues
           const newLogs = [...prev, {
             id: (++logCounter).toString(),
             type: logType,
@@ -107,7 +109,7 @@ export default function ConsolePage() {
 
       const command = input.trim();
       
-      // 首先添加命令输入
+      // Add command input first
       const newLogs: LogEntry[] = [
         {
           id: (++logCounter).toString(),
@@ -122,13 +124,13 @@ export default function ConsolePage() {
       setHistoryIndex(-1);
       setInput("");
 
-      // 处理 clear 命令（前端本地清空）
+      // Handle clear command (clear locally)
       if (command.toLowerCase() === "clear") {
         setLogs([]);
         return;
       }
 
-      // 调用后端 API 执行命令
+      // Call backend API to execute command
       try {
         const response = await remoteCommandApi.execute(command);
         
@@ -159,7 +161,7 @@ export default function ConsolePage() {
         const errorLog: LogEntry = {
           id: (++logCounter).toString(),
           type: "error",
-          content: error instanceof Error ? error.message : "命令执行失败",
+          content: error instanceof Error ? error.message : t('console.commandFailed') || "Command execution failed",
           timestamp: new Date(),
         };
         setLogs((prev) => [...prev, errorLog]);
@@ -244,23 +246,23 @@ export default function ConsolePage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Terminal className="w-8 h-8" />
-            实时控制台
+            {t('console.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">实时日志监控与命令行交互</p>
+          <p className="text-muted-foreground mt-1">{t('console.description')}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Circle className="w-2 h-2 fill-green-500 text-green-500 animate-pulse" />
-            实时连接
-          </div>
-          <Button variant="outline" size="sm" onClick={exportLogs}>
-            <Download className="w-4 h-4 mr-2" />
-            导出日志
-          </Button>
-          <Button variant="outline" size="sm" onClick={clearLogs}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            清空
-          </Button>
+              <Circle className="w-2 h-2 fill-green-500 text-green-500 animate-pulse" />
+              {t('console.connected')}
+            </div>
+            <Button variant="outline" size="sm" onClick={exportLogs}>
+              <Download className="w-4 h-4 mr-2" />
+              {t('console.exportLogs')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearLogs}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('console.clear')}
+            </Button>
         </div>
       </div>
 
@@ -303,7 +305,7 @@ export default function ConsolePage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入命令..."
+            placeholder={t('console.commandPlaceholder')}
             className="flex-1 bg-transparent border-none focus-visible:ring-0 font-mono text-foreground placeholder:text-muted-foreground/50"
             autoFocus
           />

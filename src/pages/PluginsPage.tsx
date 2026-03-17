@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,19 +16,6 @@ import { Settings, Loader2, ChevronDown, Save, Server, Cog, LayoutGrid, Users, S
 import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
 import { pluginsApi, Plugin, ServiceConfig, SvItem, PluginConfigItem, PluginConfigGroup } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-
-// 权限等级映射
-const PERMISSION_LEVELS = {
-  0: 'Bot主人',
-  1: '超级管理员',
-  2: '群主',
-  3: '群管理员',
-  4: '频道主',
-  5: '频道管理员',
-  6: '普通成员',
-  7: '权限较低',
-  8: '黑名单'
-};
 
 // Convert API plugin to local plugin type
 const convertToPlugin = (plugin: Plugin): any => {
@@ -78,6 +66,7 @@ const convertToPlugin = (plugin: Plugin): any => {
 
 export default function PluginsPage() {
   const { style } = useTheme();
+  const { t } = useLanguage();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [selectedPluginId, setSelectedPluginId] = useState<string>('');
   const [selectedConfigName, setSelectedConfigName] = useState<string | null>(null);
@@ -155,8 +144,8 @@ export default function PluginsPage() {
     } catch (error) {
       console.error('Failed to fetch plugins:', error);
       toast({
-        title: '加载失败',
-        description: '无法加载插件列表',
+        title: t('plugins.loadFailed'),
+        description: t('plugins.loadPluginListFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -256,11 +245,11 @@ export default function PluginsPage() {
         config: JSON.parse(JSON.stringify(selectedPlugin.config)),
         groups: JSON.parse(JSON.stringify(selectedPlugin.config_groups || []))
       });
-      toast({ title: '保存成功', description: '插件参数配置已更新' });
+      toast({ title: t('plugins.saveSuccess'), description: t('plugins.pluginConfigUpdated') });
     } catch (error) {
       toast({
-        title: '保存失败',
-        description: '无法更新插件参数配置',
+        title: t('plugins.saveFailed'),
+        description: t('plugins.updatePluginConfigFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -292,11 +281,11 @@ export default function PluginsPage() {
       setOriginalSvList(JSON.parse(JSON.stringify(editedSvList)));
       setOriginalEnabled(editedEnabled);
 
-      toast({ title: '保存成功', description: '插件服务配置已更新' });
+      toast({ title: t('plugins.saveSuccess'), description: t('plugins.serviceConfigUpdated') });
     } catch (error) {
       toast({
-        title: '保存失败',
-        description: '无法更新插件服务配置',
+        title: t('plugins.saveFailed'),
+        description: t('plugins.updateServiceConfigFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -312,8 +301,8 @@ export default function PluginsPage() {
             <Settings className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">插件配置</h1>
-            <p className="text-muted-foreground">管理已加载插件的参数和服务配置</p>
+            <h1 className="text-2xl font-bold tracking-tight">{t('plugins.title')}</h1>
+            <p className="text-muted-foreground">{t('plugins.description')}</p>
           </div>
         </div>
       </div>
@@ -323,7 +312,7 @@ export default function PluginsPage() {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <LayoutGrid className="w-4 h-4" />
-              <span>插件选择</span>
+              <span>{t('plugins.pluginSelection')}</span>
             </div>
             <div className="flex-1 w-full">
               <Select
@@ -331,7 +320,7 @@ export default function PluginsPage() {
                 onValueChange={setSelectedPluginId}
               >
                 <SelectTrigger className="w-full sm:w-[300px] bg-background/50">
-                  <SelectValue placeholder="选择插件..." />
+                  <SelectValue placeholder={t('plugins.selectPlugin')} />
                 </SelectTrigger>
                 <SelectContent>
                   {plugins.map((plugin) => (
@@ -344,7 +333,7 @@ export default function PluginsPage() {
                         )}
                         <span>{plugin.name}</span>
                         {!plugin.enabled && (
-                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1">已禁用</Badge>
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1">{t('plugins.pluginDisabled')}</Badge>
                         )}
                       </div>
                     </SelectItem>
@@ -360,7 +349,7 @@ export default function PluginsPage() {
         <Card className="glass-card">
           <CardContent className="py-12 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">正在加载插件配置...</p>
+            <p className="text-muted-foreground">{t('plugins.loadingPluginConfig')}</p>
           </CardContent>
         </Card>
       ) : selectedPlugin ? (
@@ -393,8 +382,8 @@ export default function PluginsPage() {
                       <Server className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold">插件服务配置</h3>
-                      <p className="text-muted-foreground text-sm mt-1">管理服务权限、黑白名单等核心参数</p>
+                      <h3 className="text-xl font-bold">{t('plugins.serviceConfig')}</h3>
+                      <p className="text-muted-foreground text-sm mt-1">{t('plugins.serviceConfigDesc')}</p>
                     </div>
                   </div>
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
@@ -410,8 +399,8 @@ export default function PluginsPage() {
                           <Server className="w-4 h-4 text-primary" />
                         </div>
                         <div>
-                          <h4 className="text-lg font-semibold">Plugin服务配置</h4>
-                          <p className="text-muted-foreground text-sm">管理整个插件的配置</p>
+                          <h4 className="text-lg font-semibold">{t('plugins.pluginServiceConfig')}</h4>
+                          <p className="text-muted-foreground text-sm">{t('plugins.pluginServiceConfigDesc')}</p>
                         </div>
                       </div>
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -423,22 +412,21 @@ export default function PluginsPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Settings className="w-4 h-4" />
-                    插件状态
+                    {t('plugins.pluginStatus')}
                   </Label>
                   <div className="flex items-center space-x-2 pt-2">
                     <Switch
                       checked={editedEnabled}
                       onCheckedChange={(checked) => setEditedEnabled(checked)}
                     />
-                    <span className="text-sm text-muted-foreground">{editedEnabled ? '已启用' : '已禁用'}</span>
+                    <span className="text-sm text-muted-foreground">{editedEnabled ? t('plugins.enabled') : t('plugins.disabled')}</span>
                   </div>
                 </div>
 
-                {/* 权限等级 (PM) */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Shield className="w-4 h-4" />
-                    权限等级 (PM)
+                    {t('plugins.permissionLevel')}
                   </Label>
                   <Select
                     value={String(editedServiceConfig.pm || 0)}
@@ -449,32 +437,32 @@ export default function PluginsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(v => (
-                        <SelectItem key={v} value={String(v)}>{PERMISSION_LEVELS[v as keyof typeof PERMISSION_LEVELS]}</SelectItem>
+                        <SelectItem key={v} value={String(v)}>{t('plugins.permissionLevels.' + v)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* 优先级 */}
+                {/* {t('plugins.priority')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Zap className="w-4 h-4" />
-                    优先级
+                    {t('plugins.priority')}
                   </Label>
                   <Input
                     type="number"
                     className="bg-background h-10"
                     value={editedServiceConfig.priority || 0}
                     onChange={(e) => setEditedServiceConfig(prev => ({ ...prev, priority: parseInt(e.target.value) }))}
-                    placeholder="输入优先级数值"
+                    placeholder={t('plugins.enterPriority')}
                   />
                 </div>
 
-                {/* 响应区域 */}
+                {/* {t('plugins.responseArea')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" />
-                    响应区域
+                    {t('plugins.responseArea')}
                   </Label>
                   <Select
                     value={editedServiceConfig.area || 'ALL'}
@@ -492,64 +480,64 @@ export default function PluginsPage() {
                   </Select>
                 </div>
 
-                {/* 插件白名单 */}
+                {/* {t('plugins.pluginWhiteList')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Filter className="w-4 h-4" />
-                    插件白名单
+                    {t('plugins.pluginWhiteList')}
                   </Label>
                   <ConfigField
                     fieldKey="plugin_white_list"
                     field={{
                       type: 'tags',
-                      label: '插件白名单',
+                      label: t('plugins.pluginWhiteList'),
                       value: editedServiceConfig.plugin_white_list || [],
-                      placeholder: '输入插件白名单内容'
+                      placeholder: t('plugins.enterWhitelistContent')
                     }}
                     onChange={(fieldKey, value) => setEditedServiceConfig(prev => ({ ...prev, [fieldKey]: value }))}
                     showLabel={false}
                   />
                 </div>
 
-                {/* 插件黑名单 */}
+                {/* {t('plugins.pluginBlackList')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Users className="w-4 h-4" />
-                    插件黑名单
+                    {t('plugins.pluginBlackList')}
                   </Label>
                   <ConfigField
                     fieldKey="plugin_black_list"
                     field={{
                       type: 'tags',
-                      label: '插件黑名单',
+                      label: t('plugins.pluginBlackList'),
                       value: editedServiceConfig.plugin_black_list || [],
-                      placeholder: '输入插件黑名单内容'
+                      placeholder: t('plugins.enterBlacklistContent')
                     }}
                     onChange={(fieldKey, value) => setEditedServiceConfig(prev => ({ ...prev, [fieldKey]: value }))}
                     showLabel={false}
                   />
                 </div>
 
-                {/* 关闭默认前缀 */}
+                {/* {t('plugins.disablePrefix')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Key className="w-4 h-4" />
-                    关闭默认前缀
+                    {t('plugins.disablePrefix')}
                   </Label>
                   <div className="flex items-center space-x-2 pt-2">
                     <Switch
                       checked={editedServiceConfig.disable_force_prefix || false}
                       onCheckedChange={(checked) => setEditedServiceConfig(prev => ({ ...prev, disable_force_prefix: checked }))}
                     />
-                    <span className="text-sm text-muted-foreground">禁用强制前缀</span>
+                    <span className="text-sm text-muted-foreground">{t('plugins.disablePrefixDesc')}</span>
                   </div>
                 </div>
 
-                {/* 允许空前缀 */}
+                {/* {t('plugins.allowEmptyPrefix')} */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Key className="w-4 h-4" />
-                    允许空前缀
+                    {t('plugins.allowEmptyPrefix')}
                   </Label>
                   <div className="flex items-center space-x-2 pt-2">
                     <Switch
@@ -640,11 +628,11 @@ export default function PluginsPage() {
                             />
                           </div>
 
-                          {/* 权限等级 */}
+                          {/* {t('plugins.permissionLevel')} */}
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                               <Shield className="w-4 h-4" />
-                              权限等级
+                              {t('plugins.permissionLevel')}
                             </Label>
                             <Select
                               value={String(sv.pm || 0)}
@@ -659,17 +647,17 @@ export default function PluginsPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(v => (
-                                  <SelectItem key={v} value={String(v)}>{PERMISSION_LEVELS[v as keyof typeof PERMISSION_LEVELS]}</SelectItem>
+                                  <SelectItem key={v} value={String(v)}>{t('plugins.permissionLevels.' + v)}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
 
-                          {/* 优先级 */}
+                          {/* {t('plugins.priority')} */}
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                               <Zap className="w-4 h-4" />
-                              优先级
+                              {t('plugins.priority')}
                             </Label>
                             <Input
                               type="number"
@@ -680,15 +668,15 @@ export default function PluginsPage() {
                                 newSvList[index] = { ...sv, priority: parseInt(e.target.value) || 0 };
                                 setEditedSvList(newSvList);
                               }}
-                              placeholder="输入优先级"
+                              placeholder={t('plugins.enterPriority')}
                             />
                           </div>
 
-                          {/* 响应区域 */}
+                          {/* {t('plugins.responseArea')} */}
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                               <MessageSquare className="w-4 h-4" />
-                              响应区域
+                              {t('plugins.responseArea')}
                             </Label>
                             <Select
                               value={sv.area || 'ALL'}
@@ -702,27 +690,27 @@ export default function PluginsPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="ALL">全局</SelectItem>
-                                <SelectItem value="DIRECT">私聊</SelectItem>
-                                <SelectItem value="GROUP">群聊</SelectItem>
+                                <SelectItem value="ALL">{t('plugins.global')}</SelectItem>
+                                <SelectItem value="DIRECT">{t('plugins.directOnly')}</SelectItem>
+                                <SelectItem value="GROUP">{t('plugins.groupOnly')}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
 
-                          {/* 黑白名单 */}
+                          {/* {t('plugins.whiteList')} / {t('plugins.blackList')} */}
                           <div className="space-y-4">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                                 <Filter className="w-4 h-4" />
-                                白名单
+                                {t('plugins.whiteList')}
                               </Label>
                               <ConfigField
                                 fieldKey={`sv_${index}_white_list`}
                                 field={{
                                   type: 'tags',
-                                  label: '白名单',
+                                  label: t('plugins.whiteList'),
                                   value: sv.white_list || [],
-                                  placeholder: '输入白名单内容'
+                                  placeholder: t('plugins.enterWhitelistContent')
                                 }}
                                 onChange={(fieldKey, value) => {
                                   const newSvList = [...editedSvList];
@@ -736,15 +724,15 @@ export default function PluginsPage() {
                             <div className="space-y-2">
                               <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                                 <Users className="w-4 h-4" />
-                                黑名单
+                                {t('plugins.blackList')}
                               </Label>
                               <ConfigField
                                 fieldKey={`sv_${index}_black_list`}
                                 field={{
                                   type: 'tags',
-                                  label: '黑名单',
+                                  label: t('plugins.blackList'),
                                   value: sv.black_list || [],
-                                  placeholder: '输入黑名单内容'
+                                  placeholder: t('plugins.enterBlacklistContent')
                                 }}
                                 onChange={(fieldKey, value) => {
                                   const newSvList = [...editedSvList];
@@ -790,8 +778,8 @@ export default function PluginsPage() {
                       <Settings className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold">插件参数配置</h3>
-                      <p className="text-muted-foreground text-sm mt-1">管理插件的具体参数设置</p>
+                      <h3 className="text-xl font-bold">{t('plugins.configParams')}</h3>
+                      <p className="text-muted-foreground text-sm mt-1">{t('plugins.configParamsDesc')}</p>
                     </div>
                   </div>
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
@@ -828,7 +816,7 @@ export default function PluginsPage() {
                     if (entries.length === 0) {
                       return (
                         <div className="col-span-full py-12 text-center text-muted-foreground">
-                          <p>该配置组暂无参数项</p>
+                          <p>{t('plugins.noConfigItems')}</p>
                         </div>
                       );
                     }

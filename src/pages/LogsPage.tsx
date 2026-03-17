@@ -17,6 +17,7 @@ import { Search, RefreshCw, Download, ChevronDown, AlertCircle, AlertTriangle, I
 import { logsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { StructuredDataViewer } from '@/components/StructuredDataViewer';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'all';
 
@@ -44,6 +45,7 @@ const levelColors = {
 };
 
 export default function LogsPage() {
+  const { t } = useLanguage();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -89,9 +91,9 @@ export default function LogsPage() {
       setLogs(data.rows);
     } catch (error) {
       console.error('Failed to fetch logs:', error);
-      const errorMessage = error instanceof Error ? error.message : '无法加载日志';
+      const errorMessage = error instanceof Error ? error.message : t('common.loadFailed');
       toast({
-        title: '加载失败',
+        title: t('common.loadFailed'),
         description: errorMessage,
         variant: 'destructive'
       });
@@ -145,7 +147,7 @@ export default function LogsPage() {
 
   const handleRefresh = () => {
     fetchLogs();
-    toast({ title: '刷新成功', description: '日志已更新' });
+    toast({ title: t('common.success'), description: t('logs.refreshSuccess') || 'Logs updated' });
   };
 
   const handleExport = () => {
@@ -161,7 +163,7 @@ export default function LogsPage() {
     a.click();
     URL.revokeObjectURL(url);
     
-    toast({ title: '导出成功', description: `已导出 ${filteredLogs.length} 条日志` });
+    toast({ title: t('common.success'), description: `Exported ${filteredLogs.length} logs` });
   };
 
   const toggleExpand = (id: number) => {
@@ -186,19 +188,19 @@ export default function LogsPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <FileText className="w-8 h-8" />
-            日志查看
+            {t('logs.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">查看系统日志和错误信息</p>
+          <p className="text-muted-foreground mt-1">{t('logs.description')}</p>
         </div>
         
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            刷新
+            {t('logs.refresh')}
           </Button>
           <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
-            导出
+            {t('logs.export')}
           </Button>
         </div>
       </div>
@@ -212,7 +214,7 @@ export default function LogsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalCount.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">总日志</p>
+              <p className="text-xs text-muted-foreground">{t('logs.totalLogs')}</p>
             </div>
           </CardContent>
         </Card>
@@ -224,7 +226,7 @@ export default function LogsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{infoCount}</p>
-              <p className="text-xs text-muted-foreground">信息</p>
+              <p className="text-xs text-muted-foreground">{t('logs.info')}</p>
             </div>
           </CardContent>
         </Card>
@@ -236,7 +238,7 @@ export default function LogsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{warnCount}</p>
-              <p className="text-xs text-muted-foreground">警告</p>
+              <p className="text-xs text-muted-foreground">{t('logs.warn')}</p>
             </div>
           </CardContent>
         </Card>
@@ -248,7 +250,7 @@ export default function LogsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{errorCount}</p>
-              <p className="text-xs text-muted-foreground">错误</p>
+              <p className="text-xs text-muted-foreground">{t('logs.errorLog')}</p>
             </div>
           </CardContent>
         </Card>
@@ -260,7 +262,7 @@ export default function LogsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{debugCount}</p>
-              <p className="text-xs text-muted-foreground">调试</p>
+              <p className="text-xs text-muted-foreground">{t('logs.debug')}</p>
             </div>
           </CardContent>
         </Card>
@@ -282,7 +284,7 @@ export default function LogsPage() {
                   )}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "yyyy-MM-dd") : "选择日期"}
+                  {selectedDate ? format(selectedDate, "yyyy-MM-dd") : t('logs.selectDate')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start" side="bottom" sideOffset={8}>
@@ -309,7 +311,7 @@ export default function LogsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="搜索日志..."
+                placeholder={t('logs.searchLogs')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -318,11 +320,11 @@ export default function LogsPage() {
             
             <Tabs value={levelFilter} onValueChange={(v) => setLevelFilter(v as LogLevel)}>
               <TabsList>
-                <TabsTrigger value="all">全部</TabsTrigger>
-                <TabsTrigger value="error" className="text-red-500">错误</TabsTrigger>
-                <TabsTrigger value="warn" className="text-yellow-500">警告</TabsTrigger>
-                <TabsTrigger value="info" className="text-blue-500">信息</TabsTrigger>
-                <TabsTrigger value="debug" className="text-gray-500">调试</TabsTrigger>
+                <TabsTrigger value="all">{t('logs.all')}</TabsTrigger>
+                <TabsTrigger value="error" className="text-red-500">{t('logs.errorLog')}</TabsTrigger>
+                <TabsTrigger value="warn" className="text-yellow-500">{t('logs.warn')}</TabsTrigger>
+                <TabsTrigger value="info" className="text-blue-500">{t('logs.info')}</TabsTrigger>
+                <TabsTrigger value="debug" className="text-gray-500">{t('logs.debug')}</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -339,7 +341,7 @@ export default function LogsPage() {
             <div className="space-y-1 p-4">
               {filteredLogs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  暂无匹配的日志
+                  {t('logs.noMatchingLogs')}
                 </div>
               ) : (
                 filteredLogs.map((log) => {
@@ -407,7 +409,7 @@ export default function LogsPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              第 {currentPage} / {totalPages} 页 (共 {totalCount.toLocaleString()} 条)
+              {t('common.pageInfo').replace('{current}', currentPage.toString()).replace('{total}', totalPages.toString())} ({t('common.totalRecords').replace('{total}', totalCount.toLocaleString())})
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -416,7 +418,7 @@ export default function LogsPage() {
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
               >
-                首页
+                {t('common.firstPage')}
               </Button>
               <Button
                 variant="outline"
@@ -424,7 +426,7 @@ export default function LogsPage() {
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
-                上一页
+                {t('common.previousPage')}
               </Button>
               <Button
                 variant="outline"
@@ -432,7 +434,7 @@ export default function LogsPage() {
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages}
               >
-                下一页
+                {t('common.nextPage')}
               </Button>
               <Button
                 variant="outline"
@@ -440,7 +442,7 @@ export default function LogsPage() {
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage >= totalPages}
               >
-                末页
+                {t('common.lastPage')}
               </Button>
             </div>
           </div>

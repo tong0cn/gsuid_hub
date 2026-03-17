@@ -5,52 +5,54 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Sun, Moon, Palette, Image, Sparkles, Check, Upload, Link, X, Blend, Contrast, Paintbrush, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 
 const themeColors = [
-  { id: 'red', name: '亮红色', color: 'hsl(0 80% 55%)' },
-  { id: 'blue', name: '海洋蓝', color: 'hsl(220 70% 50%)' },
-  { id: 'green', name: '森林绿', color: 'hsl(150 60% 40%)' },
-  { id: 'orange', name: '日落橙', color: 'hsl(30 90% 50%)' },
-  { id: 'pink', name: '樱花粉', color: 'hsl(330 70% 60%)' },
+  { id: 'red', name: 'themes.red', color: 'hsl(0 80% 55%)' },
+  { id: 'blue', name: 'themes.blue', color: 'hsl(220 70% 50%)' },
+  { id: 'green', name: 'themes.green', color: 'hsl(150 60% 40%)' },
+  { id: 'orange', name: 'themes.orange', color: 'hsl(30 90% 50%)' },
+  { id: 'pink', name: 'themes.pink', color: 'hsl(330 70% 60%)' },
 ] as const;
 
 // 二次元背景预设 - 萌妹子
 const animeBgPresets = [
-  { id: 'anime3', name: '蓝色街道', value: 'https://cdn.pixabay.com/photo/2024/05/26/15/27/anime-8788959_1280.jpg' },
-  { id: 'anime4', name: '星穹铁道', value: 'https://files.seeusercontent.com/2026/03/13/5nQg/gg.jpg' },
-  { id: 'anime5', name: '随机老婆', value: 'https://api.paugram.com/wallpaper' },
-  { id: 'anime6', name: '废墟少女', value: 'https://files.seeusercontent.com/2026/03/13/w5oD/aa.jpg' },
+  { id: 'anime3', name: 'themes.animeStreet', value: 'https://cdn.pixabay.com/photo/2024/05/26/15/27/anime-8788959_1280.jpg' },
+  { id: 'anime4', name: 'themes.animeRail', value: 'https://files.seeusercontent.com/2026/03/13/5nQg/gg.jpg' },
+  { id: 'anime5', name: 'themes.randomWife', value: 'https://api.paugram.com/wallpaper' },
+  { id: 'anime6', name: 'themes.ruinsGirl', value: 'https://files.seeusercontent.com/2026/03/13/w5oD/aa.jpg' },
 ];
 
 // 图片预设背景
 const imagePresets = [
-  { id: 'starry', name: '黑色', value: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1920&q=80' },
-  { id: 'mountain', name: '山峦', value: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
-  { id: 'ocean', name: '海洋', value: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
-  { id: 'forest', name: '森林', value: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
-  { id: 'city', name: '城市', value: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1920&q=80' },
-  { id: 'aurora', name: '波浪', value: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&q=80' },
+  { id: 'starry', name: 'themes.black', value: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1920&q=80' },
+  { id: 'mountain', name: 'themes.mountain', value: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80' },
+  { id: 'ocean', name: 'themes.ocean', value: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80' },
+  { id: 'forest', name: 'themes.forest', value: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&q=80' },
+  { id: 'city', name: 'themes.city', value: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1920&q=80' },
+  { id: 'aurora', name: 'themes.aurora', value: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&q=80' },
 ];
 
 // 渐变预设背景
 const gradientPresets = [
-  { id: 'gradient1', name: '极光紫', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { id: 'gradient2', name: '海洋蓝', value: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-  { id: 'gradient3', name: '日落橙', value: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
-  { id: 'gradient4', name: '森林绿', value: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
-  { id: 'gradient5', name: '星空黑', value: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%)' },
+  { id: 'gradient1', name: 'themes.auroraPurple', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+  { id: 'gradient2', name: 'themes.gradientBlue', value: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+  { id: 'gradient3', name: 'themes.gradientOrange', value: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+  { id: 'gradient4', name: 'themes.gradientGreen', value: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
+  { id: 'gradient5', name: 'themes.gradientBlack', value: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%)' },
 ];
 
 // ICON 颜色选项
 const iconColorOptions = [
-  { id: 'colored', name: '彩色', icon: '🎨' },
-  { id: 'white', name: '白色', icon: '⚪' },
-  { id: 'black', name: '黑色', icon: '⚫' },
+  { id: 'colored', name: 'themes.coloredIcon', icon: '🎨' },
+  { id: 'white', name: 'themes.whiteIcon', icon: '⚪' },
+  { id: 'black', name: 'themes.blackIcon', icon: '⚫' },
 ] as const;
 
 export default function ThemesPage() {
+  const { t } = useLanguage();
   const {
     mode, style, color, backgroundImage, blurIntensity,
     iconColor, themePreset,
@@ -65,12 +67,12 @@ export default function ThemesPage() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('请选择图片文件');
+      toast.error(t('themes.selectImageFile'));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('图片大小不能超过 5MB');
+      toast.error(t('themes.imageSizeLimit'));
       return;
     }
 
@@ -78,24 +80,24 @@ export default function ThemesPage() {
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setBackgroundImage(dataUrl);
-      toast.success('背景图片已上传');
+      toast.success(t('themes.bgUploaded'));
     };
     reader.readAsDataURL(file);
   };
 
   const handleCustomUrl = () => {
     if (!customUrl.trim()) {
-      toast.error('请输入图片链接');
+      toast.error(t('themes.enterImageLink'));
       return;
     }
     setBackgroundImage(customUrl);
     setCustomUrl('');
-    toast.success('背景图片已应用');
+    toast.success(t('themes.bgApplied'));
   };
 
   const clearBackground = () => {
     setBackgroundImage(null);
-    toast.success('背景已清除');
+    toast.success(t('themes.bgCleared'));
   };
 
   // 选择背景时自动切换到毛玻璃风格
@@ -103,7 +105,7 @@ export default function ThemesPage() {
     setBackgroundImage(value);
     if (value && style !== 'glassmorphism') {
       setStyle('glassmorphism');
-      toast.success('已自动切换到毛玻璃风格以显示背景');
+      toast.success(t('themes.autoSwitchGlass'));
     }
   };
 
@@ -116,9 +118,9 @@ export default function ThemesPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Palette className="w-8 h-8" />
-          主题设置
+          {t('themes.title')}
         </h1>
-        <p className="text-muted-foreground mt-1">自定义应用外观和主题</p>
+        <p className="text-muted-foreground mt-1">{t('themes.description')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -127,9 +129,9 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {mode === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              颜色模式
+              {t('themes.colorMode')}
             </CardTitle>
-            <CardDescription>选择亮色或暗色主题</CardDescription>
+            <CardDescription>{t('themes.colorModeDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
@@ -139,7 +141,7 @@ export default function ThemesPage() {
                 onClick={() => setMode('light')}
               >
                 <Sun className="w-6 h-6" />
-                亮色模式
+                {t('themes.lightMode')}
               </Button>
               <Button
                 variant={mode === 'dark' ? 'default' : 'outline'}
@@ -147,7 +149,7 @@ export default function ThemesPage() {
                 onClick={() => setMode('dark')}
               >
                 <Moon className="w-6 h-6" />
-                暗色模式
+                {t('themes.darkMode')}
               </Button>
             </div>
           </CardContent>
@@ -158,9 +160,9 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
-              界面风格
+              {t('themes.interfaceStyle')}
             </CardTitle>
-            <CardDescription>选择纯色或毛玻璃效果</CardDescription>
+            <CardDescription>{t('themes.styleDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
@@ -170,7 +172,7 @@ export default function ThemesPage() {
                 onClick={() => setStyle('solid')}
               >
                 <div className="w-8 h-8 rounded-lg bg-primary" />
-                纯色风格
+                {t('themes.solidStyle')}
               </Button>
               <Button
                 variant={style === 'glassmorphism' ? 'default' : 'outline'}
@@ -178,7 +180,7 @@ export default function ThemesPage() {
                 onClick={() => setStyle('glassmorphism')}
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/50 to-accent/50 backdrop-blur border border-border/50" />
-                毛玻璃风格
+                {t('themes.glassStyle')}
               </Button>
             </div>
           </CardContent>
@@ -189,9 +191,9 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Palette className="w-5 h-5" />
-              主题颜色
+              {t('themes.themeColor')}
             </CardTitle>
-            <CardDescription>选择您喜欢的主题色</CardDescription>
+            <CardDescription>{t('themes.themeColorDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-5 gap-3">
@@ -218,7 +220,7 @@ export default function ThemesPage() {
                     color === theme.id ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   }`}
                 >
-                  {theme.name}
+                  {t(theme.name)}
                 </span>
               ))}
             </div>
@@ -230,9 +232,9 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Layers className="w-5 h-5" />
-              主题预设
+              {t('themes.themePreset')}
             </CardTitle>
-            <CardDescription>选择主题风格预设</CardDescription>
+            <CardDescription>{t('themes.themePresetDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
@@ -245,7 +247,7 @@ export default function ThemesPage() {
                 }}
               >
                 <Palette className="w-6 h-6" />
-                默认风格
+                {t('themes.defaultStyle')}
               </Button>
               <Button
                 variant={themePreset === 'shadcn' ? 'default' : 'outline'}
@@ -256,13 +258,11 @@ export default function ThemesPage() {
                 }}
               >
                 <div className="w-6 h-6 rounded border-2 border-current" />
-                Shadcn 风格
+                {t('themes.shadcnStyle')}
               </Button>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              {themePreset === 'shadcn'
-                ? 'Shadcn 风格：纯黑白配色，简洁现代的 UI 风格'
-                : '默认风格：彩色主题，多种配色方案可选'}
+              {themePreset === 'shadcn' ? t('themes.shadcnStyleDesc') : t('themes.defaultStyleDesc')}
             </p>
           </CardContent>
         </Card>
@@ -272,9 +272,9 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Paintbrush className="w-5 h-5" />
-              ICON 颜色
+              {t('themes.iconColor')}
             </CardTitle>
-            <CardDescription>选择侧边栏和按钮图标的颜色</CardDescription>
+            <CardDescription>{t('themes.iconColorDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
@@ -289,14 +289,14 @@ export default function ThemesPage() {
                   }}
                 >
                   <span className="text-2xl">{option.icon}</span>
-                  {option.name}
+                  {t(option.name)}
                 </Button>
               ))}
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              {iconColor === 'colored' ? '使用主题色图标' :
-               iconColor === 'white' ? '使用白色图标（适合深色背景）' :
-               '使用黑色图标（适合浅色背景）'}
+              {iconColor === 'colored' ? t('themes.colored') :
+               iconColor === 'white' ? t('themes.whiteIcon') :
+               t('themes.blackIcon')}
             </p>
           </CardContent>
         </Card>
@@ -307,14 +307,14 @@ export default function ThemesPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Blend className="w-5 h-5" />
-                毛玻璃强度
+                {t('themes.glassIntensity')}
               </CardTitle>
-              <CardDescription>调整模糊效果的强度</CardDescription>
+              <CardDescription>{t('themes.glassIntensityDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">模糊强度</span>
+                  <span className="text-sm text-muted-foreground">{t('themes.blurIntensity')}</span>
                   <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-0.5 rounded">
                     {blurIntensity}px
                   </span>
@@ -328,9 +328,9 @@ export default function ThemesPage() {
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>清晰</span>
-                  <span>适中</span>
-                  <span>模糊</span>
+                  <span>{t('themes.clear')}</span>
+                  <span>{t('themes.moderate')}</span>
+                  <span>{t('themes.blurry')}</span>
                 </div>
               </div>
               
@@ -342,7 +342,7 @@ export default function ThemesPage() {
                   onClick={() => setBlurIntensity(4)}
                   className={blurIntensity === 4 ? 'border-primary' : ''}
                 >
-                  轻微
+                  {t('themes.slight')}
                 </Button>
                 <Button
                   variant="outline"
@@ -350,7 +350,7 @@ export default function ThemesPage() {
                   onClick={() => setBlurIntensity(12)}
                   className={blurIntensity === 12 ? 'border-primary' : ''}
                 >
-                  标准
+                  {t('themes.standard')}
                 </Button>
                 <Button
                   variant="outline"
@@ -358,7 +358,7 @@ export default function ThemesPage() {
                   onClick={() => setBlurIntensity(20)}
                   className={blurIntensity === 20 ? 'border-primary' : ''}
                 >
-                  强烈
+                  {t('themes.strong')}
                 </Button>
               </div>
             </CardContent>
@@ -370,14 +370,14 @@ export default function ThemesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Image className="w-5 h-5" />
-              背景设置
+              {t('themes.bgSettings')}
             </CardTitle>
-            <CardDescription>选择预设背景或上传自定义图片（仅在毛玻璃风格下生效）</CardDescription>
+            <CardDescription>{t('themes.bgSettingsDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* No Background Option */}
             <div>
-              <Label className="text-sm mb-2 block">默认</Label>
+              <Label className="text-sm mb-2 block">{t('themes.default')}</Label>
               <button
                 onClick={() => handleSelectBackground(null)}
                 className={`relative aspect-video w-24 rounded-lg overflow-hidden transition-all hover:scale-105 ${
@@ -385,7 +385,7 @@ export default function ThemesPage() {
                 }`}
               >
                 <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground">无背景</span>
+                  <span className="text-xs text-muted-foreground">{t('themes.noBg')}</span>
                 </div>
                 {backgroundImage === null && (
                   <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
@@ -397,7 +397,7 @@ export default function ThemesPage() {
 
             {/* ACGN Background Presets */}
             <div>
-              <Label className="text-sm mb-2 block">二次元背景</Label>
+              <Label className="text-sm mb-2 block">{t('themes.animeBg')}</Label>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {animeBgPresets.map((bg) => (
                   <button
@@ -411,7 +411,7 @@ export default function ThemesPage() {
                   >
                     <img
                       src={bg.value}
-                      alt={bg.name}
+                      alt={t(bg.name)}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
@@ -421,7 +421,7 @@ export default function ThemesPage() {
                       </div>
                     )}
                     <span className="absolute bottom-1 left-1 text-[10px] bg-background/80 px-1 rounded">
-                      {bg.name}
+                      {t(bg.name)}
                     </span>
                   </button>
                 ))}
@@ -430,7 +430,7 @@ export default function ThemesPage() {
 
             {/* Image Preset Backgrounds */}
             <div>
-              <Label className="text-sm mb-2 block">图片背景</Label>
+              <Label className="text-sm mb-2 block">{t('themes.imageBg')}</Label>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                 {imagePresets.map((bg) => (
                   <button
@@ -442,7 +442,7 @@ export default function ThemesPage() {
                   >
                     <img
                       src={bg.value}
-                      alt={bg.name}
+                      alt={t(bg.name)}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
@@ -452,7 +452,7 @@ export default function ThemesPage() {
                       </div>
                     )}
                     <span className="absolute bottom-1 left-1 text-[10px] bg-background/80 px-1 rounded">
-                      {bg.name}
+                      {t(bg.name)}
                     </span>
                   </button>
                 ))}
@@ -461,7 +461,7 @@ export default function ThemesPage() {
 
             {/* Gradient Preset Backgrounds */}
             <div>
-              <Label className="text-sm mb-2 block">渐变背景</Label>
+              <Label className="text-sm mb-2 block">{t('themes.gradientBg')}</Label>
               <div className="grid grid-cols-5 gap-3">
                 {gradientPresets.map((bg) => (
                   <button
@@ -491,7 +491,7 @@ export default function ThemesPage() {
                       backgroundImage === bg.value ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     }`}
                   >
-                    {bg.name}
+                    {t(bg.name)}
                   </span>
                 ))}
               </div>
@@ -499,8 +499,8 @@ export default function ThemesPage() {
 
             {/* Custom Upload */}
             <div className="space-y-3">
-              <Label className="text-sm">自定义背景</Label>
-              
+              <Label className="text-sm">{t('themes.customBg')}</Label>
+               
               {/* File Upload */}
               <div className="flex gap-2">
                 <input
@@ -516,7 +516,7 @@ export default function ThemesPage() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  上传图片
+                  {t('themes.uploadImage')}
                 </Button>
               </div>
 
@@ -525,7 +525,7 @@ export default function ThemesPage() {
                 <Input
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
-                  placeholder="或输入图片链接..."
+                  placeholder={t('themes.imageLink')}
                   className="flex-1"
                 />
                 <Button onClick={handleCustomUrl} size="icon" variant="outline">
@@ -537,13 +537,13 @@ export default function ThemesPage() {
               {isCustomImage && (
                 <div className="relative rounded-lg overflow-hidden aspect-video">
                   {backgroundImage.startsWith('data:') || backgroundImage.startsWith('http') ? (
-                    <img 
-                      src={backgroundImage} 
-                      alt="当前背景" 
+                    <img
+                      src={backgroundImage}
+                      alt={t('themes.currentBg')}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div 
+                    <div
                       className="w-full h-full"
                       style={{ background: backgroundImage }}
                     />
@@ -557,7 +557,7 @@ export default function ThemesPage() {
                     <X className="w-4 h-4" />
                   </Button>
                   <span className="absolute bottom-1 left-1 text-xs bg-background/80 px-2 py-0.5 rounded">
-                    自定义背景
+                    {t('themes.customBg')}
                   </span>
                 </div>
               )}
@@ -565,7 +565,7 @@ export default function ThemesPage() {
 
             {style !== 'glassmorphism' && (
               <p className="text-xs text-muted-foreground border-l-2 border-primary/50 pl-2">
-                提示：请先切换到毛玻璃风格以查看背景效果
+                {t('themes.tip')}
               </p>
             )}
           </CardContent>
@@ -575,28 +575,28 @@ export default function ThemesPage() {
       {/* Preview */}
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle>预览效果</CardTitle>
-          <CardDescription>当前主题设置的预览</CardDescription>
+          <CardTitle>{t('themes.preview')}</CardTitle>
+          <CardDescription>{t('themes.previewDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="p-4 rounded-lg bg-primary text-primary-foreground">
-              Primary 颜色
+              {t('themes.primaryColor')}
             </div>
             <div className="p-4 rounded-lg bg-secondary text-secondary-foreground">
-              Secondary 颜色
+              {t('themes.secondaryColor')}
             </div>
             <div className="p-4 rounded-lg bg-accent text-accent-foreground">
-              Accent 颜色
+              {t('themes.accentColor')}
             </div>
             <div className="p-4 rounded-lg bg-muted text-muted-foreground">
-              Muted 颜色
+              {t('themes.mutedColor')}
             </div>
             <div className="p-4 rounded-lg bg-card text-card-foreground border">
-              Card 颜色
+              {t('themes.cardColor')}
             </div>
             <div className="p-4 rounded-lg bg-destructive text-destructive-foreground">
-              Destructive 颜色
+              {t('themes.destructiveColor')}
             </div>
           </div>
         </CardContent>

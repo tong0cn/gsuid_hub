@@ -6,6 +6,7 @@ import { ConfigField, ConfigFieldDefinition, ConfigValue } from '@/components/co
 import { AlertTriangle, CheckCircle, Settings, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { configApi } from '@/lib/api';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Define types for core config
 interface CoreConfig {
@@ -86,6 +87,7 @@ const apiConfigToFieldDefinition = (key: string, value: unknown): ConfigFieldDef
 };
 
 export default function CoreConfigPage() {
+  const { t } = useLanguage();
   const [config, setConfig] = useState<Record<string, ConfigFieldDefinition>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -115,8 +117,8 @@ export default function CoreConfigPage() {
       } catch (error) {
         console.error('Failed to fetch config:', error);
         toast({
-          title: '加载失败',
-          description: '无法加载核心配置',
+          title: t('common.loadFailed'),
+          description: t('coreConfig.loadFailed') || 'Unable to load core configuration',
           variant: 'destructive'
         });
       } finally {
@@ -156,12 +158,12 @@ export default function CoreConfigPage() {
       }
       
       await configApi.setCoreConfig(configData);
-      toast({ title: '保存成功', description: '核心配置已成功保存，需要重启 GsCore 生效' });
+      toast({ title: t('common.success'), description: t('coreConfig.configSaved') });
       setHasChanges(false);
     } catch (error) {
       toast({
-        title: '保存失败',
-        description: '保存配置时发生错误',
+        title: t('common.saveFailed'),
+        description: t('coreConfig.saveFailed') || 'Error saving configuration',
         variant: 'destructive'
       });
     } finally {
@@ -177,8 +179,8 @@ export default function CoreConfigPage() {
             <Settings className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Core 核心配置</h1>
-            <p className="text-muted-foreground mt-1">管理系统核心配置参数</p>
+            <h1 className="text-3xl font-bold">{t('coreConfig.title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('coreConfig.description')}</p>
           </div>
         </div>
       </div>

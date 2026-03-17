@@ -710,6 +710,12 @@ export const systemApi = {
 
   restartCore: () =>
     api.post<{ status: number; msg: string }>('/api/system/restart'),
+
+  stopCore: () =>
+    api.post<{ status: number; msg: string }>('/api/stop'),
+
+  resumeCore: () =>
+    api.post<{ status: number; msg: string }>('/api/resume'),
 };
 
 // ===================

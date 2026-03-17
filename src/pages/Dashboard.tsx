@@ -24,10 +24,12 @@ import { dashboardApi, DailyCommandData, BotItem } from '@/lib/api';
 import {
   commandColors,
 } from '@/lib/mockData';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   // State for bot list from API
-  const [botList, setBotList] = useState<BotItem[]>([{ id: 'all', name: '汇总' }]);
+  const [botList, setBotList] = useState<BotItem[]>([{ id: 'all', name: t('dashboard.summary') }]);
   const [selectedBot, setSelectedBot] = useState('all');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
@@ -67,8 +69,8 @@ export default function Dashboard() {
        }
      } catch (error) {
        console.error('Failed to fetch bot list:', error);
-       // Fallback to default: only show "汇总" on error
-       setBotList([{ id: 'all', name: '汇总' }]);
+       // Fallback to default: only show "summary" on error
+       setBotList([{ id: 'all', name: t('dashboard.summary') }]);
      }
    };
    fetchBots();
@@ -177,15 +179,15 @@ export default function Dashboard() {
   }, [selectedBot, selectedDate]);
 
   const metricCards = [
-    { title: 'DAU', value: keyMetrics.dau.toLocaleString(), icon: Users, color: 'text-blue-500', desc: '日活跃用户' },
-    { title: 'DAG', value: keyMetrics.dag.toLocaleString(), icon: UsersRound, color: 'text-green-500', desc: '日活跃群组' },
-    { title: '用户留存', value: keyMetrics.retention, icon: TrendingUp, color: 'text-purple-500', desc: '留存率' },
-    { title: '用户新增', value: keyMetrics.newUsers.toLocaleString(), icon: UserPlus, color: 'text-cyan-500', desc: '今日新增' },
-    { title: '用户流失', value: keyMetrics.churnedUsers.toLocaleString(), icon: UserMinus, color: 'text-red-500', desc: '今日流失' },
-    { title: 'MAU', value: keyMetrics.mau.toLocaleString(), icon: Activity, color: 'text-orange-500', desc: '月活跃用户' },
-    { title: 'DAU/MAU', value: keyMetrics.dauMauRatio, icon: TrendingUp, color: 'text-indigo-500', desc: '活跃比例' },
-    { title: 'MAG', value: keyMetrics.mag.toLocaleString(), icon: UsersRound, color: 'text-teal-500', desc: '月活跃群组' },
-    { title: 'DAG/MAG', value: keyMetrics.dagMagRatio, icon: TrendingUp, color: 'text-pink-500', desc: '群组活跃比' },
+    { title: 'DAU', value: keyMetrics.dau.toLocaleString(), icon: Users, color: 'text-blue-500', desc: t('dashboard.dau') },
+    { title: 'DAG', value: keyMetrics.dag.toLocaleString(), icon: UsersRound, color: 'text-green-500', desc: t('dashboard.dag') },
+    { title: t('dashboard.retention'), value: keyMetrics.retention, icon: TrendingUp, color: 'text-purple-500', desc: t('dashboard.retention') },
+    { title: t('dashboard.newUsers'), value: keyMetrics.newUsers.toLocaleString(), icon: UserPlus, color: 'text-cyan-500', desc: t('dashboard.newUsers') },
+    { title: t('dashboard.churnedUsers'), value: keyMetrics.churnedUsers.toLocaleString(), icon: UserMinus, color: 'text-red-500', desc: t('dashboard.churnedUsers') },
+    { title: 'MAU', value: keyMetrics.mau.toLocaleString(), icon: Activity, color: 'text-orange-500', desc: t('dashboard.mau') },
+    { title: t('dashboard.dauMauRatio'), value: keyMetrics.dauMauRatio, icon: TrendingUp, color: 'text-indigo-500', desc: t('dashboard.dauMauRatio') },
+    { title: 'MAG', value: keyMetrics.mag.toLocaleString(), icon: UsersRound, color: 'text-teal-500', desc: t('dashboard.mag') },
+    { title: t('dashboard.dagMagRatio'), value: keyMetrics.dagMagRatio, icon: TrendingUp, color: 'text-pink-500', desc: t('dashboard.dagMagRatio') },
   ];
 
   // Generic legend click handler
@@ -226,7 +228,7 @@ export default function Dashboard() {
           ))}
         </div>
         <div className="border-t border-border mt-2 pt-2 flex justify-between">
-          <span className="text-muted-foreground text-sm">总计</span>
+          <span className="text-muted-foreground text-sm">{t('dashboard.total')}</span>
           <span className="font-semibold text-foreground">{total}</span>
         </div>
       </div>
@@ -269,9 +271,9 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <LayoutGrid className="w-8 h-8" />
-            数据看板
+            {t('dashboard.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">查看 Bot 的关键指标和统计数据</p>
+          <p className="text-muted-foreground mt-1">{t('dashboard.description')}</p>
         </div>
         
         {/* #TODO: Populate bot list from API */}
@@ -279,7 +281,7 @@ export default function Dashboard() {
           <Bot className="w-5 h-5 text-muted-foreground" />
           <Select value={selectedBot} onValueChange={setSelectedBot}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="选择 Bot" />
+              <SelectValue placeholder={t('dashboard.selectBot')} />
             </SelectTrigger>
             <SelectContent>
               {botList.map((bot) => (
@@ -315,7 +317,7 @@ export default function Dashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
-            月度命令统计
+            {t('dashboard.monthlyCommandStats')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -343,36 +345,36 @@ export default function Dashboard() {
               <Line 
                 type="monotone" 
                 dataKey="sentCommands" 
-                stroke="#3b82f6" 
-                name="发送命令" 
-                strokeWidth={2} 
+                stroke="#3b82f6"
+                name={t('dashboard.sendCommand')}
+                strokeWidth={2}
                 dot={false}
                 hide={!monthlyCommandVisibility.sentCommands}
               />
               <Line 
                 type="monotone" 
                 dataKey="receivedCommands" 
-                stroke="#10b981" 
-                name="接收命令" 
-                strokeWidth={2} 
+                stroke="#10b981"
+                name={t('dashboard.receiveCommand')}
+                strokeWidth={2}
                 dot={false}
                 hide={!monthlyCommandVisibility.receivedCommands}
               />
               <Line 
                 type="monotone" 
                 dataKey="commandCalls" 
-                stroke="#f59e0b" 
-                name="命令调用" 
-                strokeWidth={2} 
+                stroke="#f59e0b"
+                name={t('dashboard.commandCall')}
+                strokeWidth={2}
                 dot={false}
                 hide={!monthlyCommandVisibility.commandCalls}
               />
               <Line 
                 type="monotone" 
                 dataKey="imageGenerated" 
-                stroke="#8b5cf6" 
-                name="图片生成" 
-                strokeWidth={2} 
+                stroke="#8b5cf6"
+                name={t('dashboard.imageGen')}
+                strokeWidth={2}
                 dot={false}
                 hide={!monthlyCommandVisibility.imageGenerated}
               />
@@ -386,7 +388,7 @@ export default function Dashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            月度用户与群组统计
+            {t('dashboard.monthlyUserStats')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -412,15 +414,15 @@ export default function Dashboard() {
               />
               <Bar 
                 dataKey="users" 
-                fill="#3b82f6" 
-                name="用户" 
+                fill="#3b82f6"
+                name={t('dashboard.users')}
                 radius={[4, 4, 0, 0]}
                 hide={!monthlyUserGroupVisibility.users}
               />
               <Bar 
                 dataKey="groups" 
-                fill="#10b981" 
-                name="群组" 
+                fill="#10b981"
+                name={t('dashboard.groups')}
                 radius={[4, 4, 0, 0]}
                 hide={!monthlyUserGroupVisibility.groups}
               />
@@ -431,7 +433,7 @@ export default function Dashboard() {
 
       {/* Date Selector */}
       <div className="flex items-center gap-4">
-        <h2 className="text-xl font-semibold">日期详情</h2>
+        <h2 className="text-xl font-semibold">{t('dashboard.dateDetails')}</h2>
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -442,7 +444,7 @@ export default function Dashboard() {
               )}
             >
               <Calendar className="mr-2 h-4 w-4" />
-              {selectedDate ? format(selectedDate, "yyyy-MM-dd") : "选择日期"}
+              {selectedDate ? format(selectedDate, "yyyy-MM-dd") : t('dashboard.selectDate')}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start" side="bottom" sideOffset={8}>
@@ -463,7 +465,7 @@ export default function Dashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
-            命令使用量
+            {t('dashboard.commandUsage')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -485,8 +487,8 @@ export default function Dashboard() {
               />
               <Bar 
                 dataKey="count" 
-                fill="#3b82f6" 
-                name="调用次数" 
+                fill="#3b82f6"
+                name={t('dashboard.callCount')}
                 radius={[0, 6, 6, 0]}
                 hide={!commandUsageVisibility.count}
               />
@@ -502,7 +504,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UsersRound className="w-5 h-5" />
-              群组命令触发量
+              {t('dashboard.groupCommandTrigger')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -537,7 +539,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              个人命令触发量
+              {t('dashboard.personalCommandTrigger')}
             </CardTitle>
           </CardHeader>
           <CardContent>

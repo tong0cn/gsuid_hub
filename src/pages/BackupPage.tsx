@@ -19,6 +19,7 @@ import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from
 import { FileTreeSelector } from '@/components/backup/FileTreeSelector';
 import { backupApi, BackupFile, FileTreeNode } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -95,6 +96,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function BackupPage() {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [config, setConfig] = useState<Record<string, ConfigFieldDefinition>>({});
   const [selectedPaths, setSelectedPaths] = useState<string[]>([
@@ -246,13 +248,13 @@ export default function BackupPage() {
       
       setHasChanges(false);
       toast({
-        title: "设置已保存",
-        description: "备份配置已成功更新",
+        title: t('common.success'),
+        description: t('backup.saveSuccess'),
       });
     } catch (error) {
       toast({
-        title: "保存失败",
-        description: "保存备份配置时发生错误",
+        title: t('common.saveFailed'),
+        description: t('backup.saveFailed') || 'Error saving backup configuration',
         variant: "destructive",
       });
     } finally {
@@ -275,13 +277,13 @@ export default function BackupPage() {
       }));
       setBackupList(formattedFiles);
       toast({
-        title: "备份成功",
-        description: "备份已成功创建",
+        title: t('common.success'),
+        description: t('backup.backupSuccess'),
       });
     } catch (error) {
       toast({
-        title: "备份失败",
-        description: "创建备份时发生错误",
+        title: t('common.error'),
+        description: t('backup.backupFailed') || 'Error creating backup',
         variant: "destructive",
       });
     } finally {
@@ -294,13 +296,13 @@ export default function BackupPage() {
       await backupApi.deleteFile(file.fileName);
       setBackupList(prev => prev.filter(b => b.fileName !== file.fileName));
       toast({
-        title: "删除成功",
-        description: "备份文件已删除",
+        title: t('common.success'),
+        description: t('backup.deleteSuccess'),
       });
     } catch (error) {
       toast({
-        title: "删除失败",
-        description: "删除备份文件时发生错误",
+        title: t('common.error'),
+        description: t('backup.deleteFailed') || 'Error deleting backup file',
         variant: "destructive",
       });
     }
@@ -371,18 +373,18 @@ export default function BackupPage() {
             <div className="p-2 rounded-lg bg-primary/10">
               <HardDrive className="w-6 h-6 text-primary" />
             </div>
-            备份管理
+            {t('backup.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">配置数据备份策略和管理备份文件</p>
+          <p className="text-muted-foreground mt-1">{t('backup.description')}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleSaveSettings} disabled={!hasChanges || isSaving}>
             <Save className="w-4 h-4 mr-2" />
-            {isSaving ? '保存中...' : '保存设置'}
+            {isSaving ? t('backup.saving') : t('backup.saveSettings')}
           </Button>
           <Button onClick={handleBackupNow} disabled={isBackingUp}>
             <Play className="w-4 h-4 mr-2" />
-            {isBackingUp ? '备份中...' : '立即备份'}
+            {isBackingUp ? t('backup.backingUp') : t('backup.backupNow')}
           </Button>
         </div>
       </div>
@@ -391,19 +393,19 @@ export default function BackupPage() {
         <TabsList>
           <TabsTrigger value="settings" className="gap-2">
             <Archive className="w-4 h-4" />
-            备份设置
+            {t('backup.backupSettings')}
           </TabsTrigger>
           <TabsTrigger value="downloads" className="gap-2">
             <Download className="w-4 h-4" />
-            备份下载
+            {t('backup.backupDownload')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle>基本设置</CardTitle>
-              <CardDescription>配置备份方式和时间计划</CardDescription>
+              <CardTitle>{t('backup.basicSettings')}</CardTitle>
+              <CardDescription>{t('backup.backupMethod')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
@@ -429,7 +431,7 @@ export default function BackupPage() {
               {/* 单独的 WebDAV 配置区块 */}
               {showWebDAVConfig && (config.webdav_url || config.webdav_username || config.webdav_password) && (
                 <div className="mt-6 pt-6 border-t">
-                  <h4 className="text-sm font-medium mb-4">WebDAV 配置</h4>
+                  <h4 className="text-sm font-medium mb-4">{t('backup.webdavConfig')}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
                     {config.webdav_url && (
                       <ConfigField

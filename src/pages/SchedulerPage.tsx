@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 import {
   Dialog,
@@ -18,12 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
-  Calendar, 
-  Clock, 
-  Play, 
-  Pause, 
-  RefreshCw, 
+import {
+  Calendar,
+  Clock,
+  Play,
+  Pause,
+  RefreshCw,
   Search,
   Timer,
   CheckCircle,
@@ -35,6 +35,7 @@ import { format, addHours, addMinutes, addDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { schedulerApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ScheduledTask {
   id: string;
@@ -51,6 +52,7 @@ interface ScheduledTask {
 }
 
 export default function SchedulerPage() {
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTask, setSelectedTask] = useState<ScheduledTask | null>(null);
@@ -80,8 +82,8 @@ export default function SchedulerPage() {
     } catch (error) {
       console.error('Failed to fetch scheduler jobs:', error);
       toast({
-        title: '加载失败',
-        description: '无法加载任务调度列表',
+        title: t('common.loadFailed'),
+        description: t('scheduler.loadFailed') || 'Unable to load task scheduler list',
         variant: 'destructive'
       });
     } finally {
@@ -115,14 +117,14 @@ export default function SchedulerPage() {
       if (task.status === 'running') {
         await schedulerApi.pauseJob(taskId);
         toast({
-          title: '任务已暂停',
-          description: `任务 "${task.name}" 已暂停`
+          title: t('scheduler.taskPaused'),
+          description: `Task "${task.name}" paused`
         });
       } else {
         await schedulerApi.resumeJob(taskId);
         toast({
-          title: '任务已启动',
-          description: `任务 "${task.name}" 已启动`
+          title: t('scheduler.taskStarted'),
+          description: `Task "${task.name}" started`
         });
       }
       // Refresh jobs list
@@ -130,8 +132,8 @@ export default function SchedulerPage() {
     } catch (error) {
       console.error('Failed to toggle task status:', error);
       toast({
-        title: '操作失败',
-        description: '无法更改任务状态',
+        title: t('common.error'),
+        description: t('scheduler.operationFailed') || 'Unable to change task status',
         variant: 'destructive'
       });
     }
@@ -141,16 +143,16 @@ export default function SchedulerPage() {
     try {
       await schedulerApi.runJob(taskId);
       toast({
-        title: '执行成功',
-        description: '任务已触发执行'
+        title: t('scheduler.taskExecuted'),
+        description: t('scheduler.taskExecutedDesc') || 'Task triggered for execution'
       });
       // Refresh jobs list
       fetchJobs();
     } catch (error) {
       console.error('Failed to run job:', error);
       toast({
-        title: '执行失败',
-        description: '无法触发任务执行',
+        title: t('common.error'),
+        description: t('scheduler.executionFailed') || 'Unable to trigger task execution',
         variant: 'destructive'
       });
     }
@@ -159,11 +161,11 @@ export default function SchedulerPage() {
   const getStatusBadge = (status: ScheduledTask['status']) => {
     switch (status) {
       case 'running':
-        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">运行中</Badge>;
+        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">{t('scheduler.running')}</Badge>;
       case 'paused':
-        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">已暂停</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">{t('scheduler.paused')}</Badge>;
       case 'error':
-        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">错误</Badge>;
+        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">{t('scheduler.error')}</Badge>;
     }
   };
 
@@ -183,9 +185,9 @@ export default function SchedulerPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Calendar className="w-8 h-8" />
-          任务调度
+          {t('scheduler.title')}
         </h1>
-        <p className="text-muted-foreground mt-1">管理和监控后端定时任务 (APScheduler)</p>
+        <p className="text-muted-foreground mt-1">{t('scheduler.description')}</p>
       </div>
 
       {/* Stats Cards */}

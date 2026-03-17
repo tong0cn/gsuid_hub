@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, LogIn, Eye, EyeOff, UserPlus, Settings } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, LogIn, Eye, EyeOff, UserPlus, Settings, Globe, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCustomApiHost, setCustomApiHost } from '@/lib/api';
 
@@ -22,13 +24,14 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [registerCode, setRegisterCode] = useState('');
-  
+   
   // Custom API Host settings
   const [showSettings, setShowSettings] = useState(false);
   const [customHost, setCustomHost] = useState('');
-  
+   
   const { login, register } = useAuth();
   const { style, backgroundImage, blurIntensity } = useTheme();
+  const { t, language, setLanguage, availableLanguages } = useLanguage();
   const navigate = useNavigate();
 
   // Load theme config and custom host on mount
@@ -72,7 +75,7 @@ export default function Login() {
     let result;
     if (isRegisterMode) {
       if (password !== confirmPassword) {
-        setError('两次输入的密码不一致');
+        setError(t('login.passwordMismatch'));
         setIsLoading(false);
         return;
       }
@@ -84,7 +87,7 @@ export default function Login() {
     if (result.success) {
       navigate('/dashboard');
     } else {
-      setError(result.error || (isRegisterMode ? '注册失败' : '登录失败'));
+      setError(result.error || (isRegisterMode ? t('login.registerFailed') : t('login.loginFailed')));
     }
     
     setIsLoading(false);
@@ -153,20 +156,51 @@ export default function Login() {
           size="icon"
           className="absolute top-4 right-4 z-20"
           onClick={() => setShowSettings(true)}
-          title="设置 API Host"
+          title={t('login.settingsApiHost')}
         >
           <Settings className="h-5 w-5" />
         </Button>
+
+        {/* Language Switcher */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="absolute top-4 right-14 z-20 gap-1.5 px-2"
+              title={t('common.selectLanguage')}
+            >
+              <Globe className="h-4 w-4" />
+              <span className="text-xs font-medium">
+                {language === 'zh-CN' ? '中' : 'EN'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {availableLanguages.map((lang) => (
+              <DropdownMenuItem
+                key={lang.code}
+                onClick={() => setLanguage(lang.code)}
+                className={cn(
+                  "cursor-pointer",
+                  language === lang.code && "bg-accent"
+                )}
+              >
+                {lang.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4">
             <LogIn className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">
-            {isRegisterMode ? '注册账号' : '管理控制台'}
+            {isRegisterMode ? t('login.registerTitle') : t('login.title')}
           </CardTitle>
           <CardDescription>
-            {isRegisterMode ? '创建一个新账号' : '登录以访问管理面板'}
+            {isRegisterMode ? t('login.registerDescription') : t('login.loginDescription')}
           </CardDescription>
         </CardHeader>
         
@@ -180,11 +214,11 @@ export default function Login() {
             
             {isRegisterMode && (
               <div className="space-y-2">
-                <Label htmlFor="name">用户名</Label>
+                <Label htmlFor="name">{t('login.name')}</Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="输入用户名"
+                  placeholder={t('login.namePlaceholder')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -194,11 +228,11 @@ export default function Login() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="email">{t('login.email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@demo.com"
+                placeholder={t('login.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -207,12 +241,12 @@ export default function Login() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="输入密码"
+                  placeholder={t('login.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -236,11 +270,11 @@ export default function Login() {
             {isRegisterMode && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">确认密码</Label>
+                  <Label htmlFor="confirmPassword">{t('login.confirmPassword')}</Label>
                   <Input
                     id="confirmPassword"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="再次输入密码"
+                    placeholder={t('login.confirmPasswordPlaceholder')}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -249,11 +283,11 @@ export default function Login() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="registerCode">注册码</Label>
+                  <Label htmlFor="registerCode">{t('login.registerCode')}</Label>
                   <Input
                     id="registerCode"
                     type="text"
-                    placeholder="请输入注册码"
+                    placeholder={t('login.registerCodePlaceholder')}
                     value={registerCode}
                     onChange={(e) => setRegisterCode(e.target.value)}
                     required
@@ -268,12 +302,12 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isRegisterMode ? '注册中...' : '登录中...'}
+                  {isRegisterMode ? t('login.registering') : t('login.loggingIn')}
                 </>
               ) : (
                 <>
                   <LogIn className="mr-2 h-4 w-4" />
-                  {isRegisterMode ? '注册' : '登录'}
+                  {isRegisterMode ? t('login.registerButton') : t('login.loginButton')}
                 </>
               )}
             </Button>
@@ -292,12 +326,12 @@ export default function Login() {
               {isRegisterMode ? (
                 <>
                   <LogIn className="mr-2 h-4 w-4" />
-                  已有账号？去登录
+                  {t('login.alreadyHaveAccount')}
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  没有账号？去注册
+                  {t('login.noAccount')}
                 </>
               )}
             </Button>
@@ -309,25 +343,24 @@ export default function Login() {
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>API Host 设置</DialogTitle>
+            <DialogTitle>{t('login.settingsTitle')}</DialogTitle>
             <DialogDescription>
-              设置自定义的 API 地址，用于连接本地或其他服务器上的 Core API。
-              例如：127.0.0.1:8765
+              {t('login.settingsDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="customHost">自定义 Host</Label>
+              <Label htmlFor="customHost">{t('login.customHost')}</Label>
               <Input
                 id="customHost"
-                placeholder="例如: 127.0.0.1:8765"
+                placeholder={t('login.customHostPlaceholder')}
                 value={customHost}
                 onChange={(e) => setCustomHost(e.target.value)}
               />
             </div>
             {customHost && (
               <div className="text-sm text-muted-foreground">
-                将使用: <span className="font-mono text-foreground">
+                {t('login.willUse')} <span className="font-mono text-foreground">
                   {customHost.startsWith('http://') || customHost.startsWith('https://')
                     ? customHost
                     : `http://${customHost}`}
@@ -342,10 +375,10 @@ export default function Login() {
               onClick={handleClearHost}
               disabled={!customHost}
             >
-              清除设置
+              {t('common.clear')}
             </Button>
             <Button type="button" onClick={handleSaveHost}>
-              保存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

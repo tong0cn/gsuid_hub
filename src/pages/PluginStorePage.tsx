@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Store, Search, Package, RefreshCw, Download, Trash2, Star, User, DownloadCloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { pluginStoreApi, StorePlugin } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PluginStorePage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [plugins, setPlugins] = useState<StorePlugin[]>([]);
@@ -21,7 +23,7 @@ export default function PluginStorePage() {
 
   // 判断插件是否为"停止维护"
   const isDeprecated = (plugin: StorePlugin) => {
-    return plugin.type === 'danger' && plugin.content === '停止维护';
+    return plugin.type === 'danger' && plugin.content === t('pluginStore.deprecated');
   };
 
   // Fetch plugin list
@@ -41,8 +43,8 @@ export default function PluginStorePage() {
     } catch (error) {
       console.error('Failed to fetch plugins:', error);
       toast({
-        title: '加载失败',
-        description: '无法获取插件列表',
+        title: t('pluginStore.loadFailed'),
+        description: t('pluginStore.loadPluginListFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -59,12 +61,12 @@ export default function PluginStorePage() {
     try {
       setActionLoading(pluginId);
       await pluginStoreApi.installPlugin(pluginId);
-      toast({ title: '安装成功', description: '插件已成功安装' });
+      toast({ title: t('pluginStore.installSuccess'), description: t('pluginStore.installSuccess') });
       fetchPlugins(); // Refresh list
     } catch (error) {
       toast({
-        title: '安装失败',
-        description: '插件安装过程中发生错误',
+        title: t('pluginStore.installFailed'),
+        description: t('pluginStore.installError'),
         variant: 'destructive'
       });
     } finally {
@@ -77,12 +79,12 @@ export default function PluginStorePage() {
     try {
       setActionLoading(pluginId);
       await pluginStoreApi.updatePlugin(pluginId);
-      toast({ title: '更新成功', description: '插件已成功更新' });
+      toast({ title: t('pluginStore.updateSuccess'), description: t('pluginStore.updateSuccess') });
       fetchPlugins(); // Refresh list
     } catch (error) {
       toast({
-        title: '更新失败',
-        description: '插件更新过程中发生错误',
+        title: t('pluginStore.updateFailed'),
+        description: t('pluginStore.updateError'),
         variant: 'destructive'
       });
     } finally {
@@ -92,16 +94,16 @@ export default function PluginStorePage() {
 
   // Handle uninstall plugin
   const handleUninstall = async (pluginId: string) => {
-    if (confirm(`确定要卸载插件 "${plugins.find(p => p.id === pluginId)?.name}" 吗？`)) {
+    if (confirm(t('pluginStore.uninstallConfirm') + ' "' + plugins.find(p => p.id === pluginId)?.name + '" ' + t('pluginStore.confirmUninstall'))) {
       try {
         setActionLoading(pluginId);
         await pluginStoreApi.uninstallPlugin(pluginId);
-        toast({ title: '卸载成功', description: '插件已成功卸载' });
+        toast({ title: t('pluginStore.uninstallSuccess'), description: t('pluginStore.uninstallSuccess') });
         fetchPlugins(); // Refresh list
       } catch (error) {
         toast({
-          title: '卸载失败',
-          description: '插件卸载过程中发生错误',
+          title: t('pluginStore.uninstallFailed'),
+          description: t('pluginStore.uninstallError'),
           variant: 'destructive'
         });
       } finally {
@@ -153,19 +155,19 @@ export default function PluginStorePage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Store className="w-8 h-8" />
-            插件商城
+            {t('pluginStore.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">浏览、安装和管理系统插件</p>
+          <p className="text-muted-foreground mt-1">{t('pluginStore.description')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={fetchPlugins}
             disabled={isLoading}
             className="gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            刷新
+            {t('pluginStore.refresh')}
           </Button>
         </div>
       </div>
@@ -175,7 +177,7 @@ export default function PluginStorePage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="搜索插件名称、描述或标签..."
+              placeholder={t('pluginStore.searchPlugin')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -186,11 +188,11 @@ export default function PluginStorePage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="all">全部插件</TabsTrigger>
-          <TabsTrigger value="installed">已安装</TabsTrigger>
-          <TabsTrigger value="updates">可更新</TabsTrigger>
-          <TabsTrigger value="fun">娱乐插件</TabsTrigger>
-          <TabsTrigger value="tool">工具插件</TabsTrigger>
+          <TabsTrigger value="all">{t('pluginStore.allPlugins')}</TabsTrigger>
+          <TabsTrigger value="installed">{t('pluginStore.installed')}</TabsTrigger>
+          <TabsTrigger value="updates">{t('pluginStore.updates')}</TabsTrigger>
+          <TabsTrigger value="fun">{t('pluginStore.funPlugins')}</TabsTrigger>
+          <TabsTrigger value="tool">{t('pluginStore.toolPlugins')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
@@ -220,15 +222,15 @@ export default function PluginStorePage() {
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="mb-2">
-                  {searchQuery ? '没有找到匹配的插件' : 
-                   activeTab === 'installed' ? '还没有安装任何插件' :
-                   activeTab === 'updates' ? '所有插件都是最新版本' :
-                   activeTab === 'fun' ? '暂无可用娱乐插件' :
-                   activeTab === 'tool' ? '暂无可用工具插件' :
-                   '暂无可用插件'}
+                  {searchQuery ? t('pluginStore.noMatchedPlugins') :
+                   activeTab === 'installed' ? t('pluginStore.noInstalledPlugins') :
+                   activeTab === 'updates' ? t('pluginStore.allPluginsUpdated') :
+                   activeTab === 'fun' ? t('pluginStore.noFunPlugins') :
+                   activeTab === 'tool' ? t('pluginStore.noToolPlugins') :
+                   t('pluginStore.noPlugins')}
                 </p>
                 {searchQuery && (
-                  <p className="text-sm">请尝试调整搜索关键词</p>
+                  <p className="text-sm">{t('pluginStore.adjustSearchKeywords')}</p>
                 )}
               </CardContent>
             </Card>
@@ -289,7 +291,7 @@ export default function PluginStorePage() {
                             <h3 className="font-semibold text-base truncate">{plugin.id}</h3>
                             {deprecated && (
                               <Badge variant="secondary" className="text-xs bg-gray-500 text-white flex-shrink-0">
-                                停止维护
+                                {t('pluginStore.deprecated')}
                               </Badge>
                             )}
                             {plugin.type === 'danger' && !deprecated && (
@@ -317,19 +319,19 @@ export default function PluginStorePage() {
                       <div className="flex flex-wrap gap-1.5 items-center">
                         {plugin.installed && (
                           <Badge variant="secondary" className="text-xs bg-green-600/20 text-green-600 border-green-600/30">
-                            已安装
+                            {t('pluginStore.installedBadge')}
                           </Badge>
                         )}
                         {plugin.hasUpdate && (
                           <Badge variant="outline" className="text-xs text-amber-500 border-amber-500">
-                            可更新
+                            {t('pluginStore.canUpdate')}
                           </Badge>
                         )}
                         {plugin.isFun && (
-                          <Badge variant="outline" className="text-xs text-blue-500 border-blue-500">娱乐</Badge>
+                          <Badge variant="outline" className="text-xs text-blue-500 border-blue-500">{t('pluginStore.fun')}</Badge>
                         )}
                         {plugin.isTool && (
-                          <Badge variant="outline" className="text-xs text-green-500 border-green-500">工具</Badge>
+                          <Badge variant="outline" className="text-xs text-green-500 border-green-500">{t('pluginStore.tool')}</Badge>
                         )}
                         {plugin.alias?.map((tag, index) => (
                           <Badge key={index} variant="outline" className="text-xs">{tag}</Badge>
@@ -346,7 +348,7 @@ export default function PluginStorePage() {
                           variant="secondary"
                         >
                           <Package className="w-3 h-3" />
-                          已停止维护
+                          {t('pluginStore.stopMaintenance')}
                         </Button>
                       ) : plugin.installed ? (
                         <div className="flex gap-1.5 w-full">
@@ -362,7 +364,7 @@ export default function PluginStorePage() {
                             ) : (
                               <RefreshCw className="w-3 h-3" />
                             )}
-                            {plugin.hasUpdate ? '更新' : '最新'}
+                            {plugin.hasUpdate ? t('pluginStore.update') : t('pluginStore.latest')}
                           </Button>
                           <Button
                             size="sm"
@@ -372,7 +374,7 @@ export default function PluginStorePage() {
                             disabled={actionLoading === plugin.id}
                           >
                             <Trash2 className="w-3 h-3" />
-                            卸载
+                            {t('pluginStore.uninstall')}
                           </Button>
                         </div>
                       ) : (
@@ -388,7 +390,7 @@ export default function PluginStorePage() {
                             ) : (
                               <Download className="w-3 h-3" />
                             )}
-                            安装
+                            {t('pluginStore.install')}
                           </Button>
                           <Button
                             size="sm"
@@ -403,7 +405,7 @@ export default function PluginStorePage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <DownloadCloud className="w-3 h-3" />
-                              详情
+                              {t('pluginStore.details')}
                             </a>
                           </Button>
                         </div>

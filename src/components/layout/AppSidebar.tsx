@@ -1,12 +1,14 @@
-import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { getAuthToken, getCustomApiHost, systemApi } from '@/lib/api';
 import { useState, useEffect, useRef } from 'react';
@@ -18,48 +20,50 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-const navItems = [{
-  title: '数据看板',
+
+// 导航项配置 - 辅助函数获取翻译后的标题
+const getNavItems = (t: (key: string) => string) => [{
+  title: t('sidebar.dashboard'),
   url: '/dashboard',
   icon: LayoutDashboard
 }, {
-  title: '数据库管理',
+  title: t('sidebar.database'),
   url: '/database',
   icon: Database
 }, {
-  title: '实时控制台',
+  title: t('sidebar.console'),
   url: '/console',
   icon: Terminal
 }, {
-  title: '任务调度',
+  title: t('sidebar.scheduler'),
   url: '/scheduler',
   icon: Calendar
 }, {
-  title: 'Core 核心配置',
+  title: t('sidebar.coreConfig'),
   url: '/core-config',
   icon: Cog
 }, {
-  title: '备份管理',
+  title: t('sidebar.backup'),
   url: '/backup',
   icon: HardDrive
 }, {
-  title: '框架配置',
+  title: t('sidebar.frameworkConfig'),
   url: '/framework-config',
   icon: Cpu
 }, {
-  title: '插件配置',
+  title: t('sidebar.plugins'),
   url: '/plugins',
   icon: Settings
 }, {
-  title: '插件商城',
+  title: t('sidebar.pluginStore'),
   url: '/plugin-store',
   icon: Store
 }, {
-  title: '日志查看',
+  title: t('sidebar.logs'),
   url: '/logs',
   icon: FileText
 }, {
-  title: '主题设置',
+  title: t('sidebar.themes'),
   url: '/themes',
   icon: Palette
 }];
@@ -77,6 +81,8 @@ export function AppSidebar() {
     style,
     iconColor
   } = useTheme();
+  const { t, language, setLanguage, availableLanguages } = useLanguage();
+  const navItems = getNavItems(t);
   const isCollapsed = state === 'collapsed';
   const isGlassmorphism = style === 'glassmorphism';
 
@@ -85,6 +91,14 @@ export function AppSidebar() {
   const [restartProgress, setRestartProgress] = useState(0);
   const [restartCompleted, setRestartCompleted] = useState(false);
   const restartTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Pause/Resume state
+  const [showPauseDialog, setShowPauseDialog] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isPausing, setIsPausing] = useState(false);
+  const [pauseProgress, setPauseProgress] = useState(0);
+  const [pauseCompleted, setPauseCompleted] = useState(false);
+  const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -162,7 +176,134 @@ export function AppSidebar() {
       setShowRestartDialog(true);
     }
   };
-  
+
+  // Pause/Resume handlers
+  const handlePause = async () => {
+    setIsPausing(true);
+    setPauseProgress(0);
+    setPauseCompleted(false);
+
+    const startTime = Date.now();
+    const duration = 10000; // 10 seconds for pause operation
+    const targetProgress = 99;
+    let backendStopped = false;
+
+    pauseTimerRef.current = setInterval(async () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / duration) * targetProgress, targetProgress);
+      setPauseProgress(progress);
+
+      // Check if backend has stopped responding
+      if (!backendStopped && progress > 30) {
+        try {
+          const apiHost = getCustomApiHost();
+          const url = apiHost ? `${apiHost}/api/system/health` : '/api/system/health';
+          
+          const response = await fetch(url, { method: 'GET' }).catch(() => null);
+          
+          if (!response || !response.ok) {
+            // Backend has stopped
+            backendStopped = true;
+            setIsPaused(true);
+            setPauseProgress(100);
+            setPauseCompleted(true);
+            if (pauseTimerRef.current) {
+              clearInterval(pauseTimerRef.current);
+            }
+          }
+        } catch {
+          // Backend not responding
+        }
+      }
+
+      if (progress >= targetProgress && !backendStopped) {
+        if (pauseTimerRef.current) {
+          clearInterval(pauseTimerRef.current);
+        }
+      }
+    }, 500);
+
+    try {
+      await systemApi.stopCore();
+    } catch (error) {
+      console.log('Stop command sent, backend may be stopping...');
+    }
+  };
+
+  const handleResume = async () => {
+    setIsPausing(true);
+    setPauseProgress(0);
+    setPauseCompleted(false);
+
+    const startTime = Date.now();
+    const duration = 10000; // 10 seconds for resume operation
+    const targetProgress = 99;
+    let backendResponded = false;
+
+    pauseTimerRef.current = setInterval(async () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / duration) * targetProgress, targetProgress);
+      setPauseProgress(progress);
+
+      // Check if backend is back online
+      if (!backendResponded && progress > 30) {
+        try {
+          const apiHost = getCustomApiHost();
+          const url = apiHost ? `${apiHost}/api/system/health` : '/api/system/health';
+          
+          const response = await fetch(url, { method: 'GET' }).catch(() => null);
+          
+          if (response && response.ok) {
+            backendResponded = true;
+            setIsPaused(false);
+            setPauseProgress(100);
+            setPauseCompleted(true);
+            if (pauseTimerRef.current) {
+              clearInterval(pauseTimerRef.current);
+            }
+          }
+        } catch {
+          // Backend not responding yet
+        }
+      }
+
+      if (progress >= targetProgress && !backendResponded) {
+        if (pauseTimerRef.current) {
+          clearInterval(pauseTimerRef.current);
+        }
+      }
+    }, 500);
+
+    try {
+      await systemApi.resumeCore();
+    } catch (error) {
+      console.log('Resume command sent, backend may be resuming...');
+    }
+  };
+
+  const handlePauseDialogClose = (open: boolean) => {
+    if (!open) {
+      setShowPauseDialog(false);
+      setIsPausing(false);
+      setPauseProgress(0);
+      setPauseCompleted(false);
+      if (pauseTimerRef.current) {
+        clearInterval(pauseTimerRef.current);
+      }
+    } else {
+      setShowPauseDialog(true);
+    }
+  };
+
+  // Cleanup pause timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pauseTimerRef.current) {
+        clearInterval(pauseTimerRef.current);
+      }
+    };
+  }, []);
+ 
   // Get icon class based on iconColor setting
   const getIconClass = (customClass = "") => {
     const baseClass = customClass || "w-5 h-5";
@@ -183,15 +324,15 @@ export function AppSidebar() {
               <img src="/app/ICON.png" alt="GsCore" className="w-8 h-8 object-contain" />
             </div>
             {!isCollapsed && <div className="flex flex-col">
-                <span className="font-bold text-lg">GsCore</span>
-                <span className="text-xs text-muted-foreground">​早柚核心</span>
+                <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
+                <span className="text-xs text-muted-foreground">​{t('sidebar.早柚核心')}</span>
               </div>}
           </div>
-          {!isCollapsed && <button onClick={toggleSidebar} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-foreground" aria-label="收起侧边栏">
+          {!isCollapsed && <button onClick={toggleSidebar} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-foreground" aria-label={t('sidebar.collapseSidebar')}>
               <PanelLeftClose className="w-4 h-4" />
             </button>}
         </div>
-        {isCollapsed && <button onClick={toggleSidebar} className="mt-2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-foreground" aria-label="展开侧边栏">
+        {isCollapsed && <button onClick={toggleSidebar} className="mt-2 h-8 w-8 flex items-center justify-center rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-foreground" aria-label={t('sidebar.expandSidebar')}>
             <PanelLeft className="w-4 h-4" />
           </button>}
       </SidebarHeader>
@@ -201,7 +342,7 @@ export function AppSidebar() {
       <SidebarContent className={cn(isCollapsed ? "px-1" : "p-2")}>
         <SidebarGroup className={cn(isCollapsed && "p-0")}>
           {!isCollapsed && <SidebarGroupLabel className="text-muted-foreground/70">
-              导航菜单
+              {t('sidebar.navMenu')}
             </SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu className={cn(isCollapsed && "items-center")}>
@@ -237,14 +378,42 @@ export function AppSidebar() {
             </div>}
         </div>
 
-        <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} onClick={logout} className={cn("text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors", isCollapsed ? "w-auto justify-center" : "w-full justify-start gap-2")}>
-          <LogOut className="w-4 h-4" />
-          {!isCollapsed && <span>退出登录</span>}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} className={cn("text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors", isCollapsed ? "w-auto justify-center" : "w-full justify-start gap-2")}>
+              <Globe className="w-4 h-4" />
+              {!isCollapsed && <span>{language === 'zh-CN' ? '中文' : 'English'}</span>}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {availableLanguages.map((lang) => (
+              <DropdownMenuItem
+                key={lang.code}
+                onClick={() => setLanguage(lang.code)}
+                className={cn(
+                  "cursor-pointer",
+                  language === lang.code && "bg-accent"
+                )}
+              >
+                {lang.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} onClick={() => setShowPauseDialog(true)} title={isPaused ? t('sidebar.resumeGsCore') : t('sidebar.pauseGsCore')} className={cn("text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors", isCollapsed ? "w-auto justify-center" : "w-full justify-start gap-2")}>
+          {isPaused ? <RotateCw className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+          {!isCollapsed && <span>{isPaused ? t('sidebar.resumeGsCore') : t('sidebar.pauseGsCore')}</span>}
         </Button>
 
-        <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} onClick={() => setShowRestartDialog(true)} title="重启GsCore" className={cn("text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10 transition-colors", isCollapsed ? "w-auto justify-center mt-2" : "w-full justify-start gap-2 mt-2")}>
+        <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} onClick={() => setShowRestartDialog(true)} title={t('sidebar.restartGsCore')} className={cn("text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10 transition-colors", isCollapsed ? "w-auto justify-center" : "w-full justify-start gap-2")}>
           <Power className="w-4 h-4" />
-          {!isCollapsed && <span>重启GsCore</span>}
+          {!isCollapsed && <span>{t('sidebar.restartGsCore')}</span>}
+        </Button>
+
+        <Button variant="ghost" size={isCollapsed ? 'icon' : 'default'} onClick={logout} className={cn("text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors", isCollapsed ? "w-auto justify-center" : "w-full justify-start gap-2")}>
+          <LogOut className="w-4 h-4" />
+          {!isCollapsed && <span>{t('sidebar.logout')}</span>}
         </Button>
       </SidebarFooter>
 
@@ -255,27 +424,27 @@ export function AppSidebar() {
               <>
                 <DialogTitle className="flex items-center gap-2">
                   <RotateCw className="w-5 h-5 animate-spin text-green-500" />
-                  重启成功
+                  {t('sidebar.restartSuccess')}
                 </DialogTitle>
                 <DialogDescription>
-                  GsCore 已成功重启！
+                  {t('sidebar.restartSuccessDesc')}
                 </DialogDescription>
               </>
             ) : isRestarting ? (
               <>
                 <DialogTitle className="flex items-center gap-2">
                   <RotateCw className="w-5 h-5 animate-spin" />
-                  正在重启GsCore...
+                  {t('sidebar.restartSystem')}
                 </DialogTitle>
                 <DialogDescription>
-                  核心正在重启中，请稍候...
+                  {t('sidebar.restartingDesc')}
                 </DialogDescription>
               </>
             ) : (
               <>
-                <DialogTitle>是否确定重启GsCore？</DialogTitle>
+                <DialogTitle>{t('sidebar.confirmRestartTitle')}</DialogTitle>
                 <DialogDescription className="text-red-500 italic">
-                  点击按钮后你的机器人可能不会回来了
+                  {t('sidebar.confirmRestartDesc')}
                 </DialogDescription>
               </>
             )}
@@ -293,15 +462,76 @@ export function AppSidebar() {
           <DialogFooter>
             {restartCompleted ? (
               <Button variant="default" onClick={() => handleDialogClose(false)}>
-                完成
+                {t('common.confirm')}
               </Button>
             ) : isRestarting ? null : (
               <>
                 <Button variant="outline" onClick={() => handleDialogClose(false)}>
-                  取消
+                  {t('common.cancel')}
                 </Button>
                 <Button variant="destructive" onClick={handleRestart}>
-                  确认重启
+                  {t('sidebar.restartSystem')}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPauseDialog} onOpenChange={handlePauseDialogClose}>
+        <DialogContent>
+          <DialogHeader>
+            {pauseCompleted ? (
+              <>
+                <DialogTitle className="flex items-center gap-2">
+                  <RotateCw className="w-5 h-5 animate-spin text-green-500" />
+                  {isPaused ? t('sidebar.pauseSuccess') : t('sidebar.resumeSuccess')}
+                </DialogTitle>
+                <DialogDescription>
+                  {isPaused ? t('sidebar.pauseSuccessDesc') : t('sidebar.resumeSuccessDesc')}
+                </DialogDescription>
+              </>
+            ) : isPausing ? (
+              <>
+                <DialogTitle className="flex items-center gap-2">
+                  <RotateCw className="w-5 h-5 animate-spin" />
+                  {isPaused ? t('sidebar.resumingSystem') : t('sidebar.pausingSystem')}
+                </DialogTitle>
+                <DialogDescription>
+                  {isPaused ? t('sidebar.resumingDesc') : t('sidebar.pausingDesc')}
+                </DialogDescription>
+              </>
+            ) : (
+              <>
+                <DialogTitle>{isPaused ? t('sidebar.confirmResumeTitle') : t('sidebar.confirmPauseTitle')}</DialogTitle>
+                <DialogDescription className="text-red-500 italic">
+                  {isPaused ? t('sidebar.confirmResumeDesc') : t('sidebar.confirmPauseDesc')}
+                </DialogDescription>
+              </>
+            )}
+          </DialogHeader>
+
+          {isPausing && (
+            <div className="py-4">
+              <Progress value={pauseProgress} className="h-2" />
+              <p className="text-sm text-muted-foreground mt-2 text-center">
+                {Math.round(pauseProgress)}%
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            {pauseCompleted ? (
+              <Button variant="default" onClick={() => handlePauseDialogClose(false)}>
+                {t('common.confirm')}
+              </Button>
+            ) : isPausing ? null : (
+              <>
+                <Button variant="outline" onClick={() => handlePauseDialogClose(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button variant="destructive" onClick={isPaused ? handleResume : handlePause}>
+                  {isPaused ? t('sidebar.resumeSystem') : t('sidebar.pauseSystem')}
                 </Button>
               </>
             )}

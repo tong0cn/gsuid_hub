@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ const convertToConfig = (config: Record<string, PluginConfigItem>): Record<strin
 
 export default function FrameworkConfigPage() {
   const { style } = useTheme();
+  const { t } = useLanguage();
   const [configs, setConfigs] = useState<LocalFrameworkConfig[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -115,8 +117,8 @@ export default function FrameworkConfigPage() {
     } catch (error) {
       console.error('Failed to fetch framework configs:', error);
       toast({
-        title: '加载失败',
-        description: '无法加载框架配置',
+        title: t('common.loadFailed'),
+        description: t('frameworkConfig.loadFailed') || 'Unable to load framework configuration',
         variant: 'destructive'
       });
     } finally {
@@ -161,9 +163,9 @@ export default function FrameworkConfigPage() {
       });
       await frameworkConfigApi.updateFrameworkConfig(selectedConfig.full_name, configToSave);
       setOriginalConfig(JSON.parse(JSON.stringify(selectedConfig.config)));
-      toast({ title: '保存成功', description: '框架配置已更新' });
+      toast({ title: t('common.success'), description: t('frameworkConfig.configSaved') });
     } catch (error) {
-      toast({ title: '保存失败', description: '更新框架配置失败', variant: 'destructive' });
+      toast({ title: t('common.saveFailed'), description: t('frameworkConfig.saveFailed') || 'Failed to update framework configuration', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -175,9 +177,9 @@ export default function FrameworkConfigPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Cpu className="w-8 h-8" />
-            框架配置
+            {t('frameworkConfig.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">管理和配置 GsCore 框架内置配置</p>
+          <p className="text-muted-foreground mt-1">{t('frameworkConfig.description')}</p>
         </div>
       </div>
       
@@ -186,7 +188,7 @@ export default function FrameworkConfigPage() {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <Label className="flex items-center gap-2 text-base font-bold min-w-[120px]">
               <Settings className="w-4 h-4 text-primary" />
-              选择配置
+              {t('frameworkConfig.selectConfig')}
             </Label>
             <ToggleGroup
               type="single"
