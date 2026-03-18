@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Loader2, LogIn, Eye, EyeOff, UserPlus, Settings, Globe, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getCustomApiHost, setCustomApiHost } from '@/lib/api';
+import { getCustomApiHost, setCustomApiHost, authApi } from '@/lib/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -24,11 +24,14 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [registerCode, setRegisterCode] = useState('');
-   
+  // 检查是否已存在管理员账号
+  const [hasAdmin, setHasAdmin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+    
   // Custom API Host settings
   const [showSettings, setShowSettings] = useState(false);
   const [customHost, setCustomHost] = useState('');
-   
+    
   const { login, register } = useAuth();
   const { style, backgroundImage, blurIntensity } = useTheme();
   const { t, language, setLanguage, availableLanguages } = useLanguage();
@@ -39,6 +42,24 @@ export default function Login() {
     // Theme config is automatically loaded by ThemeProvider
     // Load saved custom API host
     setCustomHost(getCustomApiHost());
+    
+    // 检查是否已存在管理员账号
+    const checkAdminExists = async () => {
+      try {
+        const data = await authApi.checkAdminExists();
+        console.log('checkAdminExists data:', data);
+        // 后端返回 { status: 0, msg: "查询成功", data: { is_admin_exist: true } }
+        // api.get 会自动解析，返回的 data 就是 { is_admin_exist: true }
+        setHasAdmin(!!data.is_admin_exist);
+      } catch (error) {
+        console.error('Failed to check admin exists:', error);
+        // 如果请求失败，默认允许显示注册按钮
+        setHasAdmin(false);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
+    };
+    checkAdminExists();
   }, []);
   
   // Handle saving custom host
@@ -312,29 +333,31 @@ export default function Login() {
               )}
             </Button>
 
-            {/* Toggle Register/Login */}
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full mt-2"
-              onClick={() => {
-                setIsRegisterMode(!isRegisterMode);
-                setError('');
-                setConfirmPassword('');
-              }}
-            >
-              {isRegisterMode ? (
-                <>
-                  <LogIn className="mr-2 h-4 w-4" />
-                  {t('login.alreadyHaveAccount')}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {t('login.noAccount')}
-                </>
-              )}
-            </Button>
+            {/* Toggle Register/Login - only show if no admin exists */}
+            {!hasAdmin && !isCheckingAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full mt-2"
+                onClick={() => {
+                  setIsRegisterMode(!isRegisterMode);
+                  setError('');
+                  setConfirmPassword('');
+                }}
+              >
+                {isRegisterMode ? (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    {t('login.alreadyHaveAccount')}
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {t('login.noAccount')}
+                  </>
+                )}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

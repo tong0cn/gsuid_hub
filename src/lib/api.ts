@@ -644,6 +644,10 @@ export const authApi = {
    
   getCurrentUser: () =>
     api.get<User>('/api/auth/me'),
+  
+  // 检查是否已存在管理员账号
+  checkAdminExists: () =>
+    api.get<{ is_admin_exist: boolean }>('/api/auth/admin/exists'),
    
   uploadAvatar: (file: File) => {
     const formData = new FormData();
@@ -712,10 +716,10 @@ export const systemApi = {
     api.post<{ status: number; msg: string }>('/api/system/restart'),
 
   stopCore: () =>
-    api.post<{ status: number; msg: string }>('/api/stop'),
+    api.post<{ status: number; msg: string }>('/api/system/stop'),
 
   resumeCore: () =>
-    api.post<{ status: number; msg: string }>('/api/resume'),
+    api.post<{ status: number; msg: string }>('/api/system/resume'),
 };
 
 // ===================
