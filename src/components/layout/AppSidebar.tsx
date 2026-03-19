@@ -1,5 +1,6 @@
 import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from '@/components/NavLink';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -349,7 +350,7 @@ export function AppSidebar() {
           <SidebarMenu className={cn(isCollapsed && "items-center")}>
             {navItems.map(item => <SidebarMenuItem key={item.title} className={cn(isCollapsed ? "w-auto" : "w-full")}>
               <SidebarMenuButton asChild tooltip={item.title}>
-                <NavLink to={item.url} className={({ isActive }) => cn("flex items-center rounded-lg transition-all", isCollapsed ? "justify-center w-10 h-10 p-0" : "gap-3 px-3 py-2.5", "hover:bg-primary/10", isActive && "bg-primary/20 text-primary font-medium shadow-sm")}>
+                <NavLink to={item.url} className={cn("flex items-center rounded-lg transition-all", isCollapsed ? "justify-center w-10 h-10 p-0" : "gap-3 px-3 py-2.5", "hover:bg-primary/10")} activeClassName="bg-primary/20 text-primary font-medium shadow-sm">
                   <item.icon className={getIconClass("w-5 h-5 shrink-0")} />
                   {!isCollapsed && <span>{item.title}</span>}
                 </NavLink>
