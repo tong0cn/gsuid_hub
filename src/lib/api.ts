@@ -123,6 +123,13 @@ export interface ServiceConfig {
   allow_empty_prefix: boolean;
 }
 
+export interface SvCommand {
+  type: string;
+  keyword: string;
+  block: boolean;
+  to_me: boolean;
+}
+
 export interface SvItem {
   name: string;
   enabled: boolean;
@@ -131,6 +138,7 @@ export interface SvItem {
   area: string;
   black_list: string[];
   white_list: string[];
+  commands?: SvCommand[];
 }
 
 export interface Plugin {

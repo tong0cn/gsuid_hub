@@ -361,6 +361,22 @@
     "enterWhitelistContent": "Enter whitelist content",
     "enterBlacklistContent": "Enter blacklist content",
     "confirmChanges": "Confirm Changes",
+    "commandTrigger": "Command Trigger",
+    "commandKeyword": "Trigger Keyword",
+    "commandType": "Trigger Type",
+    "commandBlock": "Block Subsequent Triggers",
+    "commandToMe": "Only Respond to @Bot",
+    "allCommands": "All Commands",
+    "triggerTypes": {
+      "command": "Command",
+      "prefix": "Prefix Match",
+      "suffix": "Suffix Match",
+      "keyword": "Keyword Match",
+      "fullmatch": "Full Match",
+      "regex": "Regex Match",
+      "file": "File Type",
+      "message": "Message"
+    },
     "permissionLevels": {
       "0": "Bot Owner",
       "1": "Super Admin",

@@ -12,9 +12,10 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Settings, Loader2, ChevronDown, Save, Server, Cog, LayoutGrid, Users, Shield, Filter, Zap, MessageSquare, Key } from 'lucide-react';
+import { Settings, Loader2, ChevronDown, Save, Server, Cog, LayoutGrid, Users, Shield, Filter, Zap, MessageSquare, Key, Command } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
-import { pluginsApi, Plugin, ServiceConfig, SvItem, PluginConfigItem, PluginConfigGroup, PluginListItem } from '@/lib/api';
+import { pluginsApi, Plugin, ServiceConfig, SvItem, SvCommand, PluginConfigItem, PluginConfigGroup, PluginListItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 // Convert API plugin to local plugin type
@@ -454,6 +455,72 @@ export default function PluginsPage() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
+                    {/* 汇总所有SV命令Tags - 单独一行，放在Plugin服务配置内最上方 */}
+                    {editedSvList && editedSvList.length > 0 && (() => {
+                      const allCommands = new Map<string, SvCommand>();
+                      editedSvList.forEach(sv => {
+                        sv.commands?.forEach(cmd => {
+                          const key = `${cmd.type}:${cmd.keyword}`;
+                          if (!allCommands.has(key)) {
+                            allCommands.set(key, cmd);
+                          }
+                        });
+                      });
+                      const uniqueCommands = Array.from(allCommands.values());
+                      
+                      return (
+                        <div className="mb-6 pb-4 border-b">
+                          <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+                            <Command className="w-4 h-4" />
+                            {t('plugins.allCommands')} ({uniqueCommands.length})
+                          </Label>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <TooltipProvider delayDuration={300}>
+                              {uniqueCommands.map((cmd: SvCommand, cmdIndex: number) => {
+                                const typeColors: Record<string, string> = {
+                                  command: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700',
+                                  prefix: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700',
+                                  suffix: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-700',
+                                  keyword: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700',
+                                  fullmatch: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-700',
+                                  regex: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700',
+                                  file: 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-300 dark:border-pink-700',
+                                  message: 'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-700',
+                                };
+                                const colorClass = typeColors[cmd.type] || 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
+                                
+                                return (
+                                  <Tooltip key={cmdIndex}>
+                                    <TooltipTrigger asChild>
+                                      <span
+                                        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs cursor-pointer transition-colors ${colorClass}`}
+                                      >
+                                        {cmd.keyword}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs z-50 bg-white dark:bg-gray-900 border shadow-lg">
+                                      <div className="space-y-1">
+                                        <p className="font-medium text-gray-900 dark:text-gray-100">{t('plugins.commandTrigger')}</p>
+                                        <div className="grid grid-cols-[auto_1fr] gap-x-2 text-xs text-gray-700 dark:text-gray-300">
+                                          <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandType')}:</span>
+                                          <span className="text-gray-900 dark:text-gray-100">{t(`plugins.triggerTypes.${cmd.type}`) || cmd.type}</span>
+                                          <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandKeyword')}:</span>
+                                          <span className="font-mono break-all text-gray-900 dark:text-gray-100">{cmd.keyword}</span>
+                                          <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandBlock')}:</span>
+                                          <span className="text-gray-900 dark:text-gray-100">{cmd.block ? '✓' : '✗'}</span>
+                                          <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandToMe')}:</span>
+                                          <span className="text-gray-900 dark:text-gray-100">{cmd.to_me ? '✓' : '✗'}</span>
+                                        </div>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              })}
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
                 {/* 插件状态 */}
                 <div className="space-y-2">
@@ -632,7 +699,8 @@ export default function PluginsPage() {
                     )}
                     <span className="text-xs text-muted-foreground">(只读)</span>
                   </div>
-                  </div>
+                </div>
+
                 </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -657,8 +725,8 @@ export default function PluginsPage() {
                     <CollapsibleContent>
                       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {editedSvList.map((sv, index) => (
-                      <Card key={`${sv.name}-${index}`} className="glass-card border">
-                        <CardContent className="p-6 space-y-4">
+                      <Card key={`${sv.name}-${index}`} className="glass-card border h-full flex flex-col">
+                        <CardContent className="p-6 space-y-4 flex-1">
                           {/* SV名称 */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -788,6 +856,68 @@ export default function PluginsPage() {
                                 }}
                                 showLabel={false}
                               />
+                            </div>
+                          </div>
+
+                          {/* 命令Tags */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                              <Command className="w-4 h-4" />
+                              命令
+                            </Label>
+                            <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+                              {sv.commands && sv.commands.length > 0 ? (
+                                <TooltipProvider delayDuration={300}>
+                                  {sv.commands.slice(0, 10).map((cmd: SvCommand, cmdIndex: number) => {
+                                    // 根据type确定颜色
+                                    const typeColors: Record<string, string> = {
+                                      command: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700',
+                                      prefix: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700',
+                                      suffix: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-700',
+                                      keyword: 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700',
+                                      fullmatch: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-700',
+                                      regex: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700',
+                                      file: 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-300 dark:border-pink-700',
+                                      message: 'bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-700',
+                                    };
+                                    const colorClass = typeColors[cmd.type] || 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
+                                    
+                                    return (
+                                      <Tooltip key={cmdIndex}>
+                                        <TooltipTrigger asChild>
+                                          <span
+                                            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-xs cursor-pointer transition-colors ${colorClass}`}
+                                          >
+                                            {cmd.keyword}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-xs z-50 bg-white dark:bg-gray-900 border shadow-lg">
+                                          <div className="space-y-1">
+                                            <p className="font-medium text-gray-900 dark:text-gray-100">{t('plugins.commandTrigger')}</p>
+                                            <div className="grid grid-cols-[auto_1fr] gap-x-2 text-xs text-gray-700 dark:text-gray-300">
+                                              <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandType')}:</span>
+                                              <span className="text-gray-900 dark:text-gray-100">{t(`plugins.triggerTypes.${cmd.type}`) || cmd.type}</span>
+                                              <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandKeyword')}:</span>
+                                              <span className="font-mono break-all text-gray-900 dark:text-gray-100">{cmd.keyword}</span>
+                                              <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandBlock')}:</span>
+                                              <span className="text-gray-900 dark:text-gray-100">{cmd.block ? '✓' : '✗'}</span>
+                                              <span className="text-gray-500 dark:text-gray-400">{t('plugins.commandToMe')}:</span>
+                                              <span className="text-gray-900 dark:text-gray-100">{cmd.to_me ? '✓' : '✗'}</span>
+                                            </div>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </TooltipProvider>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">无</span>
+                              )}
+                              {sv.commands && sv.commands.length > 10 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{sv.commands.length - 10}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </CardContent>

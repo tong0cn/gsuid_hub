@@ -361,6 +361,22 @@
     "enterWhitelistContent": "输入白名单内容",
     "enterBlacklistContent": "输入黑名单内容",
     "confirmChanges": "确认修改",
+    "commandTrigger": "命令触发器",
+    "commandKeyword": "触发关键字",
+    "commandType": "触发类型",
+    "commandBlock": "阻止后续触发",
+    "commandToMe": "仅响应@机器人",
+    "allCommands": "全部命令",
+    "triggerTypes": {
+      "command": "命令",
+      "prefix": "前缀匹配",
+      "suffix": "后缀匹配",
+      "keyword": "关键字匹配",
+      "fullmatch": "完全匹配",
+      "regex": "正则匹配",
+      "file": "文件类型",
+      "message": "消息"
+    },
     "permissionLevels": {
       "0": "Bot主人",
       "1": "超级管理员",
