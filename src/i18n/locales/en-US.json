@@ -225,6 +225,7 @@
     "description": "Real-time log monitoring and command line interaction",
     "connected": "Connected",
     "disconnected": "Disconnected",
+    "autoScroll": "Auto Scroll",
     "exportLogs": "Export Logs",
     "clear": "Clear",
     "commandPlaceholder": "Enter command...",

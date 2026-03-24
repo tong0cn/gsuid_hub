@@ -393,7 +393,7 @@ export function AppSidebar() {
   // Must set stroke to make lucide icons work correctly since they use stroke="currentColor"
   const getIconStyle = (): React.CSSProperties => {
     if (iconColor === 'white') {
-      return { color: 'white', stroke: 'white', filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))' };
+      return { color: 'white', stroke: 'white' };
     } else if (iconColor === 'black') {
       return { color: 'black', stroke: 'black' };
     }
@@ -469,7 +469,7 @@ export function AppSidebar() {
                               <SidebarMenuItem key={child.title} className="w-full">
                                 <SidebarMenuButton asChild tooltip={child.title}>
                                   <NavLink to={child.url || '#'} className={cn("flex items-center rounded-lg transition-all", "gap-3 px-3 py-2", "hover:bg-primary/10")} activeClassName="bg-primary/20 text-primary font-medium shadow-sm">
-                                    {child.icon && <child.icon className={getIconClass("w-4 h-4 shrink-0")} />}
+                                    {child.icon && <child.icon className={getIconClass("w-4 h-4 shrink-0")} style={getIconStyle()} />}
                                     <span>{child.title}</span>
                                   </NavLink>
                                 </SidebarMenuButton>
@@ -488,7 +488,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title} className={cn(isCollapsed ? "w-auto" : "w-full")}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink to={item.url || '#'} className={cn("flex items-center rounded-lg transition-all", isCollapsed ? "justify-center w-10 h-10 p-0" : "gap-3 px-3 py-2.5", "hover:bg-primary/10")} activeClassName="bg-primary/20 text-primary font-medium shadow-sm">
-                      {item.icon && <item.icon className={getIconClass("w-5 h-5 shrink-0")} />}
+                      {item.icon && <item.icon className={getIconClass("w-5 h-5 shrink-0")} style={getIconStyle()} />}
                       {!isCollapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>

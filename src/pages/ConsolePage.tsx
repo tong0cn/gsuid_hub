@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { Terminal, Trash2, Download, Circle } from "lucide-react";
 import { StructuredDataViewer } from "@/components/StructuredDataViewer";
 import { remoteCommandApi } from "@/lib/api";
@@ -23,15 +24,20 @@ export default function ConsolePage() {
   const [input, setInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [autoScroll, setAutoScroll] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom only when autoScroll is enabled
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (autoScroll && scrollRef.current) {
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      });
     }
-  }, [logs]);
+  }, [logs, autoScroll]);
 
   // Real-time log stream connection
   useEffect(() => {
@@ -254,6 +260,10 @@ export default function ConsolePage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Circle className="w-2 h-2 fill-green-500 text-green-500 animate-pulse" />
               {t('console.connected')}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">{t('console.autoScroll')}</span>
+              <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
             </div>
             <Button variant="outline" size="sm" onClick={exportLogs}>
               <Download className="w-4 h-4 mr-2" />
