@@ -415,7 +415,10 @@ export function AppSidebar() {
             <img src="/app/ICON.png" alt="GsCore" className="w-8 h-8 object-contain" />
           </div>
           {!isCollapsed && <div className="flex flex-col">
-            <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
+              <span className="font-light text-sm text-muted-foreground">v{import.meta.env.PACKAGE_VERSION || '0.0.4'}</span>
+            </div>
             <span className="text-xs text-muted-foreground">​{t('sidebar.早柚核心')}</span>
           </div>}
         </div>

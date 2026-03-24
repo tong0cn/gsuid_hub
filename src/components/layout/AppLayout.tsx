@@ -24,11 +24,12 @@ function LayoutHeader() {
         <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="打开菜单">
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
             <img src="/app/ICON.png" alt="GsCore" className="w-6 h-6 object-contain" />
           </div>
           <span className="font-semibold">GsCore</span>
+          <span className="font-light text-sm text-muted-foreground">v{import.meta.env.PACKAGE_VERSION || '0.0.4'}</span>
         </div>
       </div>
       <button onClick={() => navigate('/settings')} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">

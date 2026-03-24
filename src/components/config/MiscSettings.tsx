@@ -5,12 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Settings, Sun, Moon, MessageSquare, UserX, Shield, Clock, ListFilter, HelpCircle } from 'lucide-react';
-import { frameworkConfigApi, FrameworkConfigListItem } from '@/lib/api';
+import { Loader2, Save, Settings, Sun, Moon, MessageSquare, UserX, Shield, Clock, ListFilter, HelpCircle, Cog } from 'lucide-react';
+import { frameworkConfigApi, FrameworkConfigListItem, PluginConfigItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfigDirty } from '@/contexts/ConfigDirtyContext';
 import { cn } from '@/lib/utils';
+import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
 
 interface MiscConfig {
   HelpMode: {
@@ -49,11 +50,21 @@ interface MiscConfig {
   };
 }
 
+// 预期配置项的 key 列表，用于识别预料之外的配置项
+const EXPECTED_CONFIG_KEYS = [
+  'HelpMode',
+  'AtSenderPos',
+  'SameUserEventCD',
+  'BlackList',
+  'EnableForwardMessage',
+];
+
 interface LocalMiscConfig {
   id: string;
   name: string;
   full_name: string;
   config: MiscConfig;
+  rawConfig?: Record<string, PluginConfigItem>; // 存储后端返回的原始完整配置
 }
 
 const CD_OPTIONS = [0, 1, 2, 3, 5, 10, 15, 30];
@@ -115,6 +126,7 @@ export default function MiscSettings() {
         id: data.id,
         name: data.name,
         full_name: data.full_name,
+        rawConfig: data.config as Record<string, PluginConfigItem>,
         config: {
           HelpMode: {
             value: (data.config.HelpMode?.value || 'dark') as string,
@@ -184,8 +196,71 @@ export default function MiscSettings() {
     }
   }, [miscConfig?.id, setDirty]);
 
+  // 将后端配置转换为 ConfigFieldDefinition 类型
+  const convertToConfigField = (key: string, configItem: PluginConfigItem): ConfigFieldDefinition => {
+    let type: ConfigFieldType = 'text';
+    const rawType = configItem.type?.toLowerCase() || '';
+    
+    if (rawType.includes('bool')) {
+      type = 'boolean';
+    } else if (rawType.includes('int')) {
+      type = 'number';
+    } else if (rawType.includes('list') || rawType.includes('array')) {
+      type = configItem.options ? 'multiselect' : 'tags';
+    } else if (rawType.includes('str') || rawType.includes('string')) {
+      type = configItem.options ? 'select' : 'text';
+    } else if (rawType.includes('dict') || rawType.includes('object')) {
+      type = 'text';
+      if (typeof configItem.value === 'object' && configItem.value !== null) {
+        configItem.value = JSON.stringify(configItem.value, null, 2);
+      }
+      if (typeof configItem.default === 'object' && configItem.default !== null) {
+        configItem.default = JSON.stringify(configItem.default, null, 2);
+      }
+    } else if (rawType.includes('image')) {
+      type = 'image';
+    }
+    
+    return {
+      type,
+      label: configItem.title || key,
+      value: configItem.value as ConfigValue,
+      options: configItem.options,
+      placeholder: configItem.desc || '请输入内容',
+      description: configItem.desc || key,
+      required: false,
+      disabled: false,
+    };
+  };
+
+  // 获取预料之外的配置项
+  const unexpectedConfigItems = useMemo(() => {
+    if (!miscConfig?.rawConfig) return {};
+    const items: Record<string, ConfigFieldDefinition> = {};
+    for (const [key, configItem] of Object.entries(miscConfig.rawConfig)) {
+      if (!EXPECTED_CONFIG_KEYS.includes(key)) {
+        items[key] = convertToConfigField(key, configItem);
+      }
+    }
+    return items;
+  }, [miscConfig?.rawConfig]);
+
   const handleChange = useCallback((fieldKey: string, value: string | number | boolean | string[]) => {
     if (!miscConfig) return;
+
+    // 检查是否是预料之外的配置项
+    if (!EXPECTED_CONFIG_KEYS.includes(fieldKey)) {
+      setConfigs(prev => prev.map(c => {
+        if (c.id !== miscConfig.id) return c;
+        const updatedRawConfig = { ...c.rawConfig };
+        if (updatedRawConfig[fieldKey]) {
+          updatedRawConfig[fieldKey] = { ...updatedRawConfig[fieldKey], value };
+        }
+        return { ...c, rawConfig: updatedRawConfig };
+      }));
+      setDirty(true);
+      return;
+    }
 
     const originalValue = originalConfig[fieldKey as keyof MiscConfig]?.value;
     const hasChanged = JSON.stringify(value) !== JSON.stringify(originalValue);
@@ -222,11 +297,21 @@ export default function MiscSettings() {
       setIsSaving(true);
       const configToSave: Record<string, any> = {};
 
+      // 保存预期配置项
       Object.entries(miscConfig.config).forEach(([key, field]) => {
         if (field && typeof field === 'object' && 'value' in field) {
           configToSave[key] = (field as { value: any }).value;
         }
       });
+
+      // 保存预料之外的配置项
+      if (miscConfig.rawConfig) {
+        Object.entries(miscConfig.rawConfig).forEach(([key, field]) => {
+          if (!EXPECTED_CONFIG_KEYS.includes(key) && 'value' in field) {
+            configToSave[key] = field.value;
+          }
+        });
+      }
 
       await frameworkConfigApi.updateFrameworkConfig(miscConfig.full_name, configToSave);
       setOriginalConfig(JSON.parse(JSON.stringify(miscConfig.config)));
@@ -282,21 +367,19 @@ export default function MiscSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Help Mode */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {['light', 'dark'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => handleChange('HelpMode', mode)}
                 className={cn(
-                  "p-4 rounded-lg border-2 transition-all flex items-center gap-3",
+                  "h-10 px-3 rounded-lg border-2 transition-all flex items-center justify-center",
                   config.HelpMode.value === mode
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50"
                 )}
               >
-                {mode === 'light' && <Sun className="w-5 h-5" />}
-                {mode === 'dark' && <Moon className="w-5 h-5" />}
-                <span className="font-medium">{mode === 'light' ? t('miscConfig.lightMode') : t('miscConfig.darkMode')}</span>
+                <span className="font-medium text-sm">{mode === 'light' ? t('miscConfig.lightMode') : t('miscConfig.darkMode')}</span>
               </button>
             ))}
           </div>
@@ -317,19 +400,19 @@ export default function MiscSettings() {
           {/* At Sender Position */}
           <div className="space-y-3">
             <Label>{config.AtSenderPos.title}</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {['消息最前', '消息最后'].map((pos) => (
                 <button
                   key={pos}
                   onClick={() => handleChange('AtSenderPos', pos)}
                   className={cn(
-                    "p-4 rounded-lg border-2 transition-all text-center",
+                    "h-10 px-3 rounded-lg border-2 transition-all flex items-center justify-center",
                     config.AtSenderPos.value === pos
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-primary/50"
                   )}
                 >
-                  <span className="font-medium">{pos}</span>
+                  <span className="font-medium text-sm">{pos}</span>
                 </button>
               ))}
             </div>
@@ -345,7 +428,7 @@ export default function MiscSettings() {
                   key={option}
                   onClick={() => handleChange('EnableForwardMessage', option)}
                   className={cn(
-                    "p-3 rounded-lg border-2 transition-all text-center",
+                    "h-10 px-3 rounded-lg border-2 transition-all flex items-center justify-center",
                     config.EnableForwardMessage.value === option
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-primary/50"
@@ -372,19 +455,19 @@ export default function MiscSettings() {
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <Label>{config.SameUserEventCD.title}</Label>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
               {CD_OPTIONS.map((cd) => (
                 <button
                   key={cd}
                   onClick={() => handleChange('SameUserEventCD', cd)}
                   className={cn(
-                    "p-3 rounded-lg border-2 transition-all min-w-[80px]",
+                    "h-10 px-3 rounded-lg border-2 transition-all flex items-center justify-center",
                     config.SameUserEventCD.value === cd
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-primary/50"
                   )}
                 >
-                  <span className="font-medium">{cd === 0 ? t('miscConfig.disabled') : `${cd}s`}</span>
+                  <span className="font-medium text-sm">{cd === 0 ? t('miscConfig.disabled') : `${cd}s`}</span>
                 </button>
               ))}
             </div>
@@ -443,6 +526,31 @@ export default function MiscSettings() {
           )}
         </CardContent>
       </Card>
+
+      {/* 预料之外的配置项 - 使用通用配置卡片渲染 */}
+      {Object.keys(unexpectedConfigItems).length > 0 && (
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cog className="w-5 h-5" />
+              其他设置
+            </CardTitle>
+            <CardDescription>由插件或后端新增的配置项</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(unexpectedConfigItems).map(([key, field]) => (
+                <ConfigField
+                  key={key}
+                  fieldKey={key}
+                  field={field}
+                  onChange={handleChange}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Save Button */}
       <div className="flex justify-end pt-4">

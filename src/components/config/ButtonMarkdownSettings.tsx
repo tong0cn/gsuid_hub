@@ -5,65 +5,42 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Settings, Layout, FileText, List, Columns, ToggleLeft, ToggleRight, SplitSquareHorizontal } from 'lucide-react';
-import { frameworkConfigApi, FrameworkConfigListItem } from '@/lib/api';
+import { Loader2, Save, Settings, Layout, FileText, List, Columns, ToggleLeft, ToggleRight, SplitSquareHorizontal, Cog } from 'lucide-react';
+import { frameworkConfigApi, FrameworkConfigListItem, PluginConfigItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfigDirty } from '@/contexts/ConfigDirtyContext';
 import { cn } from '@/lib/utils';
+import { ConfigField, ConfigFieldDefinition, ConfigValue } from '@/components/config';
+
+// 平台配置接口 - 适配后端返回的 gsliststr 类型
+interface PlatformConfig {
+  value: string[];
+  default: string[];
+  options: string[];
+  title: string;
+  desc: string;
+  type?: string; // 后端返回的类型，如 gsliststr
+}
+
+// 基础配置项接口
+interface BaseConfigItem {
+  value: unknown;
+  default: unknown;
+  title: string;
+  desc: string;
+  type?: string;
+}
 
 interface ButtonMarkdownConfig {
-  SendMDPlatform: {
-    value: string[];
-    default: string[];
-    options: string[];
-    title: string;
-    desc: string;
-  };
-  ButtonRow: {
-    value: number;
-    default: number;
-    title: string;
-    desc: string;
-  };
-  SendButtonsPlatform: {
-    value: string[];
-    default: string[];
-    options: string[];
-    title: string;
-    desc: string;
-  };
-  SendTemplatePlatform: {
-    value: string[];
-    default: string[];
-    options: string[];
-    title: string;
-    desc: string;
-  };
-  TryTemplateForQQ: {
-    value: boolean;
-    default: boolean;
-    title: string;
-    desc: string;
-  };
-  ForceSendMD: {
-    value: boolean;
-    default: boolean;
-    title: string;
-    desc: string;
-  };
-  UseCRLFReplaceLFForMD: {
-    value: boolean;
-    default: boolean;
-    title: string;
-    desc: string;
-  };
-  SplitMDAndButtons: {
-    value: boolean;
-    default: boolean;
-    title: string;
-    desc: string;
-  };
+  SendMDPlatform: PlatformConfig;
+  ButtonRow: BaseConfigItem & { value: number; default: number };
+  SendButtonsPlatform: PlatformConfig;
+  SendTemplatePlatform: PlatformConfig;
+  TryTemplateForQQ: BaseConfigItem & { value: boolean; default: boolean };
+  ForceSendMD: BaseConfigItem & { value: boolean; default: boolean };
+  UseCRLFReplaceLFForMD: BaseConfigItem & { value: boolean; default: boolean };
+  SplitMDAndButtons: BaseConfigItem & { value: boolean; default: boolean };
 }
 
 interface LocalButtonMarkdownConfig {
@@ -71,20 +48,54 @@ interface LocalButtonMarkdownConfig {
   name: string;
   full_name: string;
   config: ButtonMarkdownConfig;
+  rawConfig?: Record<string, PluginConfigItem>; // 存储后端返回的原始完整配置
 }
 
+// 预期配置项的 key 列表，用于识别预料之外的配置项
+const EXPECTED_CONFIG_KEYS = [
+  'SendMDPlatform',
+  'ButtonRow',
+  'SendButtonsPlatform',
+  'SendTemplatePlatform',
+  'TryTemplateForQQ',
+  'ForceSendMD',
+  'UseCRLFReplaceLFForMD',
+  'SplitMDAndButtons',
+];
+
+// 平台选项的默认列表和标签映射
 const PLATFORM_OPTIONS = ['villa', 'kaiheila', 'dodo', 'discord', 'telegram', 'qqgroup', 'qqguild', 'web'];
 
-const PLATFORMS = [
-  { key: 'villa', label: '米游社大别野', color: 'bg-yellow-500' },
-  { key: 'kaiheila', label: '开黑啦', color: 'bg-green-500' },
-  { key: 'dodo', label: 'DoDo', color: 'bg-purple-500' },
-  { key: 'discord', label: 'Discord', color: 'bg-indigo-500' },
-  { key: 'telegram', label: 'Telegram', color: 'bg-sky-500' },
-  { key: 'qqgroup', label: 'QQ群', color: 'bg-blue-500' },
-  { key: 'qqguild', label: 'QQ频道', color: 'bg-blue-600' },
-  { key: 'web', label: 'Web', color: 'bg-gray-500' },
-] as const;
+const PLATFORM_LABELS: Record<string, string> = {
+  villa: '米游社大别野',
+  kaiheila: '开黑啦',
+  dodo: 'DoDo',
+  discord: 'Discord',
+  telegram: 'Telegram',
+  qqgroup: 'QQ群',
+  qqguild: 'QQ频道',
+  web: 'Web',
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  villa: 'bg-yellow-500',
+  kaiheila: 'bg-green-500',
+  dodo: 'bg-purple-500',
+  discord: 'bg-indigo-500',
+  telegram: 'bg-sky-500',
+  qqgroup: 'bg-blue-500',
+  qqguild: 'bg-blue-600',
+  web: 'bg-gray-500',
+};
+
+// 根据 options 生成平台列表
+const getPlatformsFromOptions = (options: string[]) => {
+  return options.map(key => ({
+    key,
+    label: PLATFORM_LABELS[key] || key,
+    color: PLATFORM_COLORS[key] || 'bg-gray-500',
+  }));
+};
 
 export default function ButtonMarkdownSettings() {
   const { t } = useLanguage();
@@ -144,6 +155,7 @@ export default function ButtonMarkdownSettings() {
         id: data.id,
         name: data.name,
         full_name: data.full_name,
+        rawConfig: data.config as Record<string, PluginConfigItem>, // 保存原始完整配置
         config: {
           SendMDPlatform: {
             value: (data.config.SendMDPlatform?.value || []) as string[],
@@ -230,8 +242,76 @@ export default function ButtonMarkdownSettings() {
     }
   }, [buttonMdConfig?.id, setDirty]);
 
+  // 将后端配置转换为 ConfigFieldDefinition 类型
+  const convertToConfigField = (key: string, configItem: PluginConfigItem): ConfigFieldDefinition => {
+    let type: ConfigFieldType = 'text';
+    const rawType = configItem.type?.toLowerCase() || '';
+    
+    if (rawType.includes('bool')) {
+      type = 'boolean';
+    } else if (rawType.includes('int')) {
+      type = 'number';
+    } else if (rawType.includes('list') || rawType.includes('array')) {
+      type = configItem.options ? 'multiselect' : 'tags';
+    } else if (rawType.includes('gstimer')) {
+      type = 'time';
+    } else if (rawType.includes('time') || rawType.includes('date')) {
+      type = 'date';
+    } else if (rawType.includes('str') || rawType.includes('string')) {
+      type = configItem.options ? 'select' : 'text';
+    } else if (rawType.includes('dict') || rawType.includes('object')) {
+      type = 'text';
+      if (typeof configItem.value === 'object' && configItem.value !== null) {
+        configItem.value = JSON.stringify(configItem.value, null, 2);
+      }
+      if (typeof configItem.default === 'object' && configItem.default !== null) {
+        configItem.default = JSON.stringify(configItem.default, null, 2);
+      }
+    } else if (rawType.includes('image')) {
+      type = 'image';
+    }
+    
+    return {
+      type,
+      label: configItem.title || key,
+      value: configItem.value as ConfigValue,
+      options: configItem.options,
+      placeholder: configItem.desc || '请输入内容',
+      description: configItem.desc || key,
+      required: false,
+      disabled: false,
+    };
+  };
+
+  // 获取预料之外的配置项
+  const unexpectedConfigItems = useMemo(() => {
+    if (!buttonMdConfig?.rawConfig) return {};
+    const items: Record<string, ConfigFieldDefinition> = {};
+    for (const [key, configItem] of Object.entries(buttonMdConfig.rawConfig)) {
+      if (!EXPECTED_CONFIG_KEYS.includes(key)) {
+        items[key] = convertToConfigField(key, configItem);
+      }
+    }
+    return items;
+  }, [buttonMdConfig?.rawConfig]);
+
   const handleChange = useCallback((fieldKey: string, value: string | number | boolean | string[]) => {
     if (!buttonMdConfig) return;
+
+    // 检查是否是预料之外的配置项
+    if (!EXPECTED_CONFIG_KEYS.includes(fieldKey)) {
+      // 更新 rawConfig 中的值
+      setConfigs(prev => prev.map(c => {
+        if (c.id !== buttonMdConfig.id) return c;
+        const updatedRawConfig = { ...c.rawConfig };
+        if (updatedRawConfig[fieldKey]) {
+          updatedRawConfig[fieldKey] = { ...updatedRawConfig[fieldKey], value };
+        }
+        return { ...c, rawConfig: updatedRawConfig };
+      }));
+      setDirty(true);
+      return;
+    }
 
     const originalValue = originalConfig[fieldKey as keyof ButtonMarkdownConfig]?.value;
     const hasChanged = JSON.stringify(value) !== JSON.stringify(originalValue);
@@ -264,11 +344,21 @@ export default function ButtonMarkdownSettings() {
       setIsSaving(true);
       const configToSave: Record<string, any> = {};
 
+      // 保存预期配置项
       Object.entries(buttonMdConfig.config).forEach(([key, field]) => {
         if (field && typeof field === 'object' && 'value' in field) {
           configToSave[key] = (field as { value: any }).value;
         }
       });
+
+      // 保存预料之外的配置项
+      if (buttonMdConfig.rawConfig) {
+        Object.entries(buttonMdConfig.rawConfig).forEach(([key, field]) => {
+          if (!EXPECTED_CONFIG_KEYS.includes(key) && 'value' in field) {
+            configToSave[key] = field.value;
+          }
+        });
+      }
 
       await frameworkConfigApi.updateFrameworkConfig(buttonMdConfig.full_name, configToSave);
       setOriginalConfig(JSON.parse(JSON.stringify(buttonMdConfig.config)));
@@ -312,10 +402,28 @@ export default function ButtonMarkdownSettings() {
 
   const config = buttonMdConfig.config;
 
+  // 从后端返回的 options 动态生成平台列表，fallback 到默认列表
+  const sendMDPlatforms = getPlatformsFromOptions(
+    config.SendMDPlatform.options?.length ? config.SendMDPlatform.options : PLATFORM_OPTIONS
+  );
+  const sendButtonsPlatforms = getPlatformsFromOptions(
+    config.SendButtonsPlatform.options?.length ? config.SendButtonsPlatform.options : PLATFORM_OPTIONS
+  );
+  const sendTemplatePlatforms = getPlatformsFromOptions(
+    config.SendTemplatePlatform.options?.length ? config.SendTemplatePlatform.options : ['qqgroup', 'qqguild', 'web']
+  );
+
   return (
     <div className="space-y-6 flex-1 overflow-visible h-full flex flex-col">
       {/* Platform Selection Card */}
       <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            {t('buttonMdConfig.platformSelection')}
+          </CardTitle>
+          <CardDescription>{t('buttonMdConfig.platformSelectionDesc')}</CardDescription>
+        </CardHeader>
         <CardContent className="p-6 space-y-6">
           {/* Send MD Platform */}
           <div className="space-y-3">
@@ -324,7 +432,7 @@ export default function ButtonMarkdownSettings() {
               <Label>{config.SendMDPlatform.title}</Label>
             </div>
             <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((platform) => {
+              {sendMDPlatforms.map((platform) => {
                 const isSelected = config.SendMDPlatform.value.includes(platform.key);
                 return (
                   <button
@@ -354,7 +462,7 @@ export default function ButtonMarkdownSettings() {
                 <Label>{config.SendButtonsPlatform.title}</Label>
               </div>
               <div className="flex flex-wrap gap-2">
-                {PLATFORMS.map((platform) => {
+                {sendButtonsPlatforms.map((platform) => {
                   const isSelected = config.SendButtonsPlatform.value.includes(platform.key);
                   return (
                     <button
@@ -383,7 +491,7 @@ export default function ButtonMarkdownSettings() {
                 <Label>{config.SendTemplatePlatform.title}</Label>
               </div>
               <div className="flex flex-wrap gap-2">
-                {PLATFORMS.filter(p => ['qqgroup', 'qqguild', 'web'].includes(p.key)).map((platform) => {
+                {sendTemplatePlatforms.map((platform) => {
                   const isSelected = config.SendTemplatePlatform.value.includes(platform.key);
                   return (
                     <button
@@ -536,6 +644,31 @@ export default function ButtonMarkdownSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 预料之外的配置项 - 使用通用配置卡片渲染 */}
+      {Object.keys(unexpectedConfigItems).length > 0 && (
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cog className="w-5 h-5" />
+              其他设置
+            </CardTitle>
+            <CardDescription>由插件或后端新增的配置项</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(unexpectedConfigItems).map(([key, field]) => (
+                <ConfigField
+                  key={key}
+                  fieldKey={key}
+                  field={field}
+                  onChange={handleChange}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Save Button */}
       <div className="flex justify-end pt-4">

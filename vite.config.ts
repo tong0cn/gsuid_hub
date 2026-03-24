@@ -4,9 +4,16 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import fs from "fs";
 
+// 读取 package.json 获取版本号
+const packageJsonPath = path.resolve(__dirname, "package.json");
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: mode === "development" ? "/" : "/app/",
+  define: {
+    PACKAGE_VERSION: JSON.stringify(packageJson.version),
+  },
   server: {
     host: "::",
     port: 8080,

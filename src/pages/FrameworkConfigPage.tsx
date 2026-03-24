@@ -343,7 +343,8 @@ export default function FrameworkConfigPage() {
         <VerificationSettings />
       ) : (selectedConfig.name === '发送图片' || selectedConfig.full_name === '发送图片') ? (
         <ImageSendSettings />
-      ) : (selectedConfig.name === '按钮和Markdown配置' || selectedConfig.full_name === '按钮和Markdown配置') ? (
+      ) : (selectedConfig.name.includes('按钮') && (selectedConfig.name.includes('MD') || selectedConfig.name.includes('Markdown'))) ||
+          (selectedConfig.full_name.includes('按钮') && (selectedConfig.full_name.includes('MD') || selectedConfig.full_name.includes('Markdown'))) ? (
         <ButtonMarkdownSettings />
       ) : !selectedConfig.config || Object.keys(selectedConfig.config).length === 0 ? (
         <Card className="glass-card">

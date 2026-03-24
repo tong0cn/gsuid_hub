@@ -406,6 +406,149 @@ import { Save, Trash, Settings, Menu } from 'lucide-react';
 1. 修改 `ThemeContext.tsx` 中的颜色配置
 2. 或修改 `tailwind.config.ts` 中的颜色映射
 
+### 8.5 渐进式配置页面开发规范
+
+渐进式配置页面（Progressive Configuration Page）是一种混合渲染模式：对于已知的配置项使用精心设计的 UI 组件渲染，对于未知的配置项使用通用的 `ConfigField` 组件兜底。
+
+#### 8.5.1 核心概念
+
+- **预期配置项 (Expected Keys)**: 已知并设计了专门 UI 的配置项
+- **预料之外配置项 (Unexpected Keys)**: 后端返回但前端未单独处理的配置项
+- **混合渲染**: 预期配置项用定制 UI，预料之外配置项用通用卡片
+
+#### 8.5.2 实现模式
+
+以 `ButtonMarkdownSettings.tsx` 为例：
+
+```tsx
+// 1. 定义预期配置项的 key 列表
+const EXPECTED_CONFIG_KEYS = [
+  'SendMDPlatform',
+  'ButtonRow',
+  'SendButtonsPlatform',
+  // ...
+];
+
+// 2. 存储后端返回的原始完整配置
+interface LocalButtonMarkdownConfig {
+  id: string;
+  name: string;
+  full_name: string;
+  config: ButtonMarkdownConfig;        // 预期配置项（类型安全）
+  rawConfig?: Record<string, PluginConfigItem>;  // 原始完整配置
+}
+
+// 3. 将后端配置转换为 ConfigFieldDefinition 类型
+const convertToConfigField = (key: string, configItem: PluginConfigItem): ConfigFieldDefinition => {
+  // 根据 type 判断字段类型
+  let type: ConfigFieldType = 'text';
+  const rawType = configItem.type?.toLowerCase() || '';
+  
+  if (rawType.includes('bool')) type = 'boolean';
+  else if (rawType.includes('int')) type = 'number';
+  else if (rawType.includes('list') || rawType.includes('array')) {
+    type = configItem.options ? 'multiselect' : 'tags';
+  }
+  // ... 其他类型判断
+  
+  return {
+    type,
+    label: configItem.title || key,
+    value: configItem.value as ConfigValue,
+    options: configItem.options,
+    // ...
+  };
+};
+
+// 4. 获取预料之外的配置项
+const unexpectedConfigItems = useMemo(() => {
+  if (!buttonMdConfig?.rawConfig) return {};
+  const items: Record<string, ConfigFieldDefinition> = {};
+  for (const [key, configItem] of Object.entries(buttonMdConfig.rawConfig)) {
+    if (!EXPECTED_CONFIG_KEYS.includes(key)) {
+      items[key] = convertToConfigField(key, configItem);
+    }
+  }
+  return items;
+}, [buttonMdConfig?.rawConfig]);
+
+// 5. 处理预料之外的配置项变更
+const handleChange = useCallback((fieldKey: string, value: ConfigValue) => {
+  // 检查是否是预料之外的配置项
+  if (!EXPECTED_CONFIG_KEYS.includes(fieldKey)) {
+    // 更新 rawConfig 中的值
+    setConfigs(prev => prev.map(c => {
+      if (c.id !== buttonMdConfig.id) return c;
+      const updatedRawConfig = { ...c.rawConfig };
+      if (updatedRawConfig[fieldKey]) {
+        updatedRawConfig[fieldKey] = { ...updatedRawConfig[fieldKey], value };
+      }
+      return { ...c, rawConfig: updatedRawConfig };
+    }));
+    setDirty(true);
+    return;
+  }
+  // ... 处理预期配置项
+}, [...]);
+
+// 6. 保存时包含所有配置项
+const handleSaveConfig = async () => {
+  // 保存预期配置项
+  Object.entries(buttonMdConfig.config).forEach(([key, field]) => {
+    configToSave[key] = field.value;
+  });
+  // 保存预料之外的配置项
+  if (buttonMdConfig.rawConfig) {
+    Object.entries(buttonMdConfig.rawConfig).forEach(([key, field]) => {
+      if (!EXPECTED_CONFIG_KEYS.includes(key)) {
+        configToSave[key] = field.value;
+      }
+    });
+  }
+  await frameworkConfigApi.updateFrameworkConfig(buttonMdConfig.full_name, configToSave);
+};
+
+// 7. 渲染预料之外的配置项
+{Object.keys(unexpectedConfigItems).length > 0 && (
+  <Card className="glass-card">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Cog className="w-5 h-5" />
+        其他设置
+      </CardTitle>
+      <CardDescription>由插件或后端新增的配置项</CardDescription>
+    </CardHeader>
+    <CardContent className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Object.entries(unexpectedConfigItems).map(([key, field]) => (
+          <ConfigField
+            key={key}
+            fieldKey={key}
+            field={field}
+            onChange={handleChange}
+          />
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
+```
+
+#### 8.5.3 关键要点
+
+1. **存储 `rawConfig`**: 保存后端返回的完整原始配置，用于检测预料之外的配置项
+2. **定义 `EXPECTED_CONFIG_KEYS`**: 明确哪些配置项是已知的，用于区分预期和意外
+3. **`convertToConfigField` 函数**: 将后端配置转换为 `ConfigFieldDefinition` 类型
+4. **handleChange 双向处理**: 既要处理预期配置项的专门逻辑，也要处理意外配置项的通用逻辑
+5. **handleSaveConfig 完整保存**: 保存时要包含所有配置项，不能遗漏意外的配置项
+6. **使用 `ConfigField` 组件**: 意外配置项通过 `ConfigField` 组件渲染，这是通用的配置字段组件
+
+#### 8.5.4 适用场景
+
+当一个配置组包含：
+- 固定的核心配置项（设计专门 UI）
+- 可能变化的扩展配置项（无法预知具体有哪些）
+
 ---
 
 ## 9. 关键文件索引
