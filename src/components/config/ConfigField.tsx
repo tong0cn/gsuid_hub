@@ -27,6 +27,7 @@ import { assetsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { ChevronsUpDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { TagsInput } from './TagsInput';
 
 // 根据 title 关键词匹配图标
 const getTitleIcon = (title: string) => {
@@ -372,37 +373,13 @@ export function ConfigField({
 
       case 'list':
       case 'tags':
-        const listValue = Array.isArray(value) ? value : [];
         return (
-          <div className="flex flex-wrap items-center gap-1.5 h-10 px-3 py-1 border rounded-md bg-background">
-            {listValue.map((item, index) => (
-              <Badge key={index} variant="secondary" className="gap-1 h-6 text-xs">
-                {item}
-                <button
-                  onClick={() => handleRemoveTag(index)}
-                  className="ml-0.5 hover:text-destructive"
-                  disabled={field.disabled}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Badge>
-            ))}
-            <input
-              type="text"
-              placeholder={listValue.length === 0 ? (displayPlaceholder || '请输入/选择标签') : '添加...'}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag();
-                }
-              }}
-              onBlur={handleAddTag}
-              disabled={field.disabled}
-              className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
-            />
-          </div>
+          <TagsInput
+            value={Array.isArray(value) ? value : []}
+            onChange={(newValue) => onChange(fieldKey, newValue)}
+            placeholder={displayPlaceholder}
+            disabled={field.disabled}
+          />
         );
 
       case 'image':
