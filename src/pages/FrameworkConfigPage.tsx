@@ -105,7 +105,9 @@ export default function FrameworkConfigPage() {
     const checkFit = () => {
       if (!containerRef.current) return;
       const containerWidth = containerRef.current.offsetWidth;
-      const tabWidth = configList.length * 140 + 16; // Approximate tab width + padding
+      // Estimate each tab needs about 100px (text + icon + padding), plus 8px gap between tabs
+      const tabWidth = configList.length * 100 + (configList.length - 1) * 8 + 16;
+      // Only switch to dropdown if container is significantly narrower than needed
       setCanFitTabs(containerWidth >= tabWidth);
     };
     

@@ -454,7 +454,7 @@ export default function PluginsPage() {
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
+                  <CollapsibleContent className="px-10">
                     {/* 汇总所有SV命令Tags - 单独一行，放在Plugin服务配置内最上方 */}
                     {editedSvList && editedSvList.length > 0 && (() => {
                       const allCommands = new Map<string, SvCommand>();
@@ -634,10 +634,23 @@ export default function PluginsPage() {
 
                 {/* {t('plugins.disablePrefix')} */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Key className="w-4 h-4" />
-                    {t('plugins.disablePrefix')}
-                  </Label>
+                  <div className="flex items-center justify-between gap-4">
+                    <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2 shrink-0">
+                      <Key className="w-4 h-4" />
+                      {t('plugins.disablePrefix')}
+                    </Label>
+                    {/* force_prefix 只读显示 - 带颜色的tags */}
+                    {Array.isArray(editedServiceConfig.force_prefix) && editedServiceConfig.force_prefix.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">强制前缀：</span>
+                        {editedServiceConfig.force_prefix.map((prefix: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                            {prefix}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center space-x-2 pt-2">
                     <Switch
                       checked={editedServiceConfig.disable_force_prefix || false}
@@ -681,26 +694,6 @@ export default function PluginsPage() {
                   />
                 </div>
 
-                {/* force_prefix 只读显示 - 每个元素一个tag */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Key className="w-4 h-4" />
-                    force_prefix
-                  </Label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {Array.isArray(editedServiceConfig.force_prefix) && editedServiceConfig.force_prefix.length > 0 ? (
-                      editedServiceConfig.force_prefix.map((prefix: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {prefix}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">无</span>
-                    )}
-                    <span className="text-xs text-muted-foreground">(只读)</span>
-                  </div>
-                </div>
-
                 </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -722,7 +715,7 @@ export default function PluginsPage() {
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </CollapsibleTrigger>
-                    <CollapsibleContent>
+                    <CollapsibleContent className="px-10">
                       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {editedSvList.map((sv, index) => (
                       <Card key={`${sv.name}-${index}`} className="glass-card border h-full flex flex-col">
@@ -962,7 +955,7 @@ export default function PluginsPage() {
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </div>
               </CollapsibleTrigger>
-              <CollapsibleContent>
+              <CollapsibleContent className="px-10">
                 {selectedPlugin.config_names && selectedPlugin.config_names.length > 1 && (
                   <div className="mb-4">
                     <ToggleGroup

@@ -114,7 +114,7 @@ export default function ThemesPage() {
   const isCustomImage = backgroundImage && !allPresetValues.includes(backgroundImage);
 
   return (
-    <div className="space-y-6 flex-1 overflow-auto p-6 h-full flex flex-col">
+    <div className="space-y-6 flex-1 overflow-auto p-4 md:p-6 h-full flex flex-col min-w-0">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Palette className="w-8 h-8" />
@@ -123,7 +123,7 @@ export default function ThemesPage() {
         <p className="text-muted-foreground mt-1">{t('themes.description')}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-2 min-w-0">
         {/* Color Mode */}
         <Card className="glass-card">
           <CardHeader>
@@ -171,7 +171,7 @@ export default function ThemesPage() {
                 className="flex-1 h-20 flex-col gap-2"
                 onClick={() => setStyle('solid', true)}
               >
-                <div className="w-8 h-8 rounded-lg bg-primary" />
+                <div className={`w-8 h-8 rounded-lg ${style === 'solid' ? 'bg-primary-foreground' : 'bg-primary'}`} />
                 {t('themes.solidStyle')}
               </Button>
               <Button
@@ -196,7 +196,7 @@ export default function ThemesPage() {
             <CardDescription>{t('themes.themeColorDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {themeColors.map((theme) => (
                 <button
                   key={theme.id}
@@ -271,12 +271,12 @@ export default function ThemesPage() {
             <CardDescription>{t('themes.iconColorDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 min-w-0">
               {iconColorOptions.map((option) => (
                 <Button
                   key={option.id}
                   variant={iconColor === option.id ? 'default' : 'outline'}
-                  className="flex-1 h-20 flex-col gap-2"
+                  className="flex-1 h-20 flex-col gap-2 min-w-0"
                   onClick={() => {
                     setIconColor(option.id, true);
                   }}
@@ -455,7 +455,7 @@ export default function ThemesPage() {
             {/* Gradient Preset Backgrounds */}
             <div>
               <Label className="text-sm mb-2 block">{t('themes.gradientBg')}</Label>
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {gradientPresets.map((bg) => (
                   <button
                     key={bg.id}

@@ -4,6 +4,7 @@ import { VariantProps, cva } from "class-variance-authority";
 import { PanelLeft } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +138,7 @@ const Sidebar = React.forwardRef<
   }
 >(({ side = "left", variant = "sidebar", collapsible = "offcanvas", className, children, ...props }, ref) => {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { mode } = useTheme();
 
   if (collapsible === "none") {
     return (
@@ -151,15 +153,20 @@ const Sidebar = React.forwardRef<
   }
 
   if (isMobile) {
+    const { style: themeStyle } = useTheme();
+    const overlayClassName = mode === 'dark' ? 'bg-black/80' : 'bg-white/80';
+    const isGlassmorphism = themeStyle === 'glassmorphism';
+    
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
           data-sidebar="sidebar"
           data-mobile="true"
+          overlayClassName={overlayClassName}
           className={cn(
             "w-[--sidebar-width] p-0 text-sidebar-foreground [&>button]:hidden",
-            "rounded-r-2xl border-r-0",
-            className?.includes('floating-sidebar') ? 'floating-sidebar' : 'bg-sidebar'
+            isGlassmorphism ? 'rounded-none border-none' : 'rounded-r-2xl border-r-0',
+            isGlassmorphism ? 'bg-sidebar' : (className?.includes('floating-sidebar') ? 'floating-sidebar' : 'bg-sidebar')
           )}
           style={
             {

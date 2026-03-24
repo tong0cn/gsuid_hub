@@ -154,8 +154,14 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground;
+    padding-right: 0 !important;
+    overflow-x: hidden;
   }
 }
 
@@ -165,9 +171,10 @@ All colors MUST be HSL.
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
   border: 1px solid hsl(var(--border) / 0.4);
-  box-shadow: 
+  box-shadow:
     0 8px 32px hsl(0 0% 0% / 0.08),
     inset 0 1px 0 hsl(var(--primary) / 0.06);
+  min-width: 0;
 }
 
 /* Dark mode optimization - avoid bright white glare */
@@ -202,9 +209,16 @@ All colors MUST be HSL.
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
   border-right: 1px solid hsl(var(--border) / 0.3);
-  box-shadow: 
+  box-shadow:
     4px 0 24px hsl(0 0% 0% / 0.06),
     inset 0 1px 0 hsl(var(--primary) / 0.05);
+}
+
+/* 移动端模式下毛玻璃侧边栏使用直角 */
+@media (max-width: 768px) {
+  .glass-sidebar {
+    border-radius: 0 !important;
+  }
 }
 
 /* Floating sidebar specific styles */
