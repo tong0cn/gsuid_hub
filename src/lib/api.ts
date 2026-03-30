@@ -864,3 +864,102 @@ export const themeApi = {
   saveConfig: (config: ThemeConfig) =>
     api.post<{ status: number; msg: string }>('/api/theme/config', config),
 };
+
+// ===================
+// Persona APIs
+// ===================
+
+export interface PersonaInfo {
+  name: string;
+  content: string;
+}
+
+export interface PersonaCreateRequest {
+  name: string;
+  query: string;
+}
+
+export interface PersonaCreateResponse {
+  name: string;
+  content: string;
+}
+
+export interface PersonaAvatarResponse {
+  path: string;
+}
+
+export interface PersonaFrameworkConfig {
+  id: string;
+  name: string;
+  full_name: string;
+  config: {
+    enable_persona: {
+      value: string[];
+      default: string[];
+      type: string;
+      title: string;
+      desc: string;
+      options: string[];
+    };
+    persona_for_session: {
+      value: Record<string, string[]>;
+      default: Record<string, string[]>;
+      type: string;
+      title: string;
+      desc: string;
+    };
+  };
+}
+
+export const personaApi = {
+  // 获取角色列表
+  getPersonaList: () =>
+    api.get<string[]>('/api/persona/list'),
+
+  // 获取角色详情
+  getPersona: (personaName: string) =>
+    api.get<PersonaInfo>(`/api/persona/${encodeURIComponent(personaName)}`),
+
+  // 创建新角色
+  createPersona: (data: PersonaCreateRequest) =>
+    api.post<PersonaCreateResponse>('/api/persona/create', data),
+
+  // 删除角色
+  deletePersona: (personaName: string) =>
+    api.delete<{ status: number; msg: string }>(`/api/persona/${encodeURIComponent(personaName)}`),
+
+  // 上传角色头像
+  uploadAvatar: (personaName: string, imageData: string) =>
+    api.post<PersonaAvatarResponse>(`/api/persona/${encodeURIComponent(personaName)}/avatar`, { image: imageData }),
+
+  // 获取人格框架配置
+  getFrameworkConfig: () =>
+    api.get<PersonaFrameworkConfig>('/api/framework-config/GsCore%20AI%20%E4%BA%BA%E8%AE%BE%E9%85%8D%E7%BD%AE'),
+};
+
+// ===================
+// AI Tools API
+// ===================
+
+export interface AITool {
+  name: string;
+  description: string;
+}
+
+export interface AIToolsListResponse {
+  success: boolean;
+  data: {
+    tools: AITool[];
+    count: number;
+  };
+}
+
+export const aiToolsApi = {
+  // 获取 AI 工具列表
+  getToolsList: () =>
+    api.get<AIToolsListResponse>('/api/ai/tools/list'),
+
+  // 获取指定工具详情
+  getToolDetail: (toolName: string) =>
+    api.get<AITool>(`/api/ai/tools/${encodeURIComponent(toolName)}`),
+};

@@ -33,7 +33,7 @@ interface ThemeColorContextType {
 
 interface ThemeBackgroundContextType {
   backgroundImage: string | null;
-  setBackgroundImage: (url: string | null) => void;
+  setBackgroundImage: (url: string | null, autoSave?: boolean) => void;
   blurIntensity: number;
   setBlurIntensity: (value: number, autoSave?: boolean) => void;
 }
@@ -346,8 +346,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [iconColor, isInitialized]);
 
   // 保存到后端的统一方法
-  const saveToBackend = useCallback(async () => {
-    const config = configRef.current;
+  const saveToBackend = useCallback(async (overrides?: Partial<typeof configRef.current>) => {
+    const config = { ...configRef.current, ...overrides };
     try {
       await themeApi.saveConfig({
         mode: config.mode,
@@ -368,49 +368,49 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setMode = useCallback((newMode: ThemeMode, autoSave?: boolean) => {
     setModeState(newMode);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ mode: newMode });
     }
   }, [isInitialized, saveToBackend]);
 
   const setStyle = useCallback((newStyle: ThemeStyle, autoSave?: boolean) => {
     setStyleState(newStyle);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ style: newStyle });
     }
   }, [isInitialized, saveToBackend]);
 
   const setColor = useCallback((newColor: ThemeColor, autoSave?: boolean) => {
     setColorState(newColor);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ color: newColor });
     }
   }, [isInitialized, saveToBackend]);
 
   const setThemePreset = useCallback((newPreset: ThemePreset, autoSave?: boolean) => {
     setThemePresetState(newPreset);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ themePreset: newPreset });
     }
   }, [isInitialized, saveToBackend]);
 
   const setIconColor = useCallback((newIconColor: IconColor, autoSave?: boolean) => {
     setIconColorState(newIconColor);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ iconColor: newIconColor });
     }
   }, [isInitialized, saveToBackend]);
 
-  const setBackgroundImage = useCallback((url: string | null) => {
+  const setBackgroundImage = useCallback((url: string | null, autoSave?: boolean) => {
     setBackgroundImageState(url);
-    if (isInitialized) {
-      saveToBackend();
+    if (autoSave && isInitialized) {
+      saveToBackend({ backgroundImage: url });
     }
   }, [isInitialized, saveToBackend]);
 
   const setBlurIntensity = useCallback((value: number, autoSave?: boolean) => {
     setBlurIntensityState(value);
     if (autoSave && isInitialized) {
-      saveToBackend();
+      saveToBackend({ blurIntensity: value });
     }
   }, [isInitialized, saveToBackend]);
 
@@ -418,7 +418,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setLanguageState(lang);
     localStorage.setItem('theme_language', lang);
     if (isInitialized) {
-      saveToBackend();
+      saveToBackend({ language: lang });
     }
   }, [isInitialized, saveToBackend]);
 

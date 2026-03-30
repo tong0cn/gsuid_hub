@@ -122,7 +122,11 @@ export default function AIConfigPage() {
     try {
       setIsLoading(true);
       const data = await frameworkConfigApi.getFrameworkConfigList('GsCore AI');
-      setConfigList(data);
+      // Filter out 人设配置 since it already exists in 人格配置 page
+      const filteredData = data.filter(config =>
+        !config.name.toLowerCase().includes('人设')
+      );
+      setConfigList(filteredData);
       
       // If has configs and none selected, select first
       if (data.length > 0) {

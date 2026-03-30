@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { X, Search, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Search, Plus, Copy, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 
 interface TagsInputProps {
   value: string[];
   onChange: (value: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
+  options?: string[];
 }
 
 export const TagsInput: React.FC<TagsInputProps> = ({
@@ -16,218 +16,202 @@ export const TagsInput: React.FC<TagsInputProps> = ({
   onChange,
   placeholder,
   disabled,
+  options,
 }: TagsInputProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [visibleCount, setVisibleCount] = useState<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const listValue = Array.isArray(value) ? value : [];
-  
-  const filteredTags = searchQuery
-    ? listValue.filter(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    : listValue;
-  
-  const hiddenCount = visibleCount !== null ? Math.max(0, listValue.length - visibleCount) : 0;
-  const hasOverflow = visibleCount !== null && visibleCount < listValue.length;
 
-  // 计算可见标签数量
-  const calculateVisibleCount = useCallback(() => {
-    if (!containerRef.current || listValue.length === 0) {
-      setVisibleCount(null);
-      return;
-    }
-
-    const container = containerRef.current;
-    const containerWidth = container.offsetWidth;
-    const containerPadding = 24;
-    const triggerWidth = hasOverflow ? 60 : 40;
-    const gap = 6;
-    const availableWidth = containerWidth - containerPadding - triggerWidth - gap;
-
-    let currentWidth = 0;
-    let visible = 0;
-
-    const badgeWidths: number[] = [];
-    const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.visibility = 'hidden';
-    tempDiv.style.whiteSpace = 'nowrap';
-    tempDiv.className = 'inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold gap-1 h-6 text-xs';
-    document.body.appendChild(tempDiv);
-
-    for (const item of listValue) {
-      tempDiv.textContent = item;
-      const width = tempDiv.offsetWidth + 8;
-      badgeWidths.push(width);
-    }
-
-    document.body.removeChild(tempDiv);
-
-    for (let i = 0; i < badgeWidths.length; i++) {
-      const width = badgeWidths[i] + (visible > 0 ? gap : 0);
-      if (currentWidth + width <= availableWidth) {
-        currentWidth += width;
-        visible++;
-      } else {
-        break;
-      }
-    }
-
-    if (visible <= 2 && listValue.length > 2) {
-      visible = listValue.length;
-    }
-
-    setVisibleCount(visible < listValue.length ? visible : null);
-  }, [listValue, hasOverflow]);
-
-  useEffect(() => {
-    calculateVisibleCount();
-    
-    const resizeObserver = new ResizeObserver(() => {
-      calculateVisibleCount();
-    });
-    
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    
-    return () => resizeObserver.disconnect();
-  }, [calculateVisibleCount]);
-
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  const handleAddTag = useCallback((tag: string) => {
+  const handleAddTag = (tag: string) => {
     const trimmed = tag.trim();
     if (trimmed && !listValue.includes(trimmed)) {
       onChange([...listValue, trimmed]);
     }
     setSearchQuery('');
-  }, [listValue, onChange]);
+  };
 
   const handleRemoveTag = (index: number) => {
     onChange(listValue.filter((_, i) => i !== index));
   };
 
-  const displayedTags = visibleCount !== null ? listValue.slice(0, visibleCount) : listValue;
-  const showAddPrompt = searchQuery.trim() && !listValue.includes(searchQuery.trim());
+  const handleCopy = async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 1500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
+      handleAddTag(searchQuery);
+    }
+  };
+
+  // 截断文本到指定宽度（中文字符宽度为1，其他字符宽度为0.5）
+  const truncateToWidth = (text: string, maxWidth: number = 12): string => {
+    const chineseRegex = /[\u4e00-\u9fa5]/g;
+    const chineseCount = (text.match(chineseRegex) || []).length;
+    const otherCount = text.length - chineseCount;
+    const totalWidth = chineseCount + otherCount * 0.5;
+    
+    if (totalWidth <= maxWidth) return text;
+    
+    let result = '';
+    let currentWidth = 0;
+    for (const char of text) {
+      const charWidth = chineseRegex.test(char) ? 1 : 0.5;
+      if (currentWidth + charWidth > maxWidth) break;
+      result += char;
+      currentWidth += charWidth;
+    }
+    return result + '...';
+  };
+
+  // 过滤选项（排除已选中的，支持搜索）
+  const filteredOptions = options?.filter(opt => 
+    !listValue.includes(opt) && 
+    (!searchQuery || opt.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) || [];
+
+  // 过滤标签（支持搜索）
+  const filteredTags = searchQuery
+    ? listValue.filter(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    : listValue;
 
   return (
-    <div 
-      ref={containerRef}
-      className="border rounded-md bg-background min-h-[38px]"
-    >
-      <div className="flex flex-wrap items-center gap-1.5 min-h-[34px] px-3 py-1.5">
-        {displayedTags.map((item) => (
-          <Badge
-            key={item}
-            variant="secondary"
-            className="gap-1 h-6 text-xs max-w-[200px] truncate"
+    <div className="border rounded-md bg-background/30 backdrop-blur-sm h-10">
+      <div className="flex items-center gap-2 px-3 h-full">
+        {/* 已添加的标签列表 */}
+        {listValue.map((item, index) => (
+          <div
+            key={index}
+            className="flex items-center rounded-full border border-transparent bg-secondary/30 text-secondary-foreground hover:bg-secondary/50 backdrop-blur-sm gap-1 h-6 text-xs px-2.5 py-0.5 font-semibold transition-colors max-w-[300px] shrink-0 overflow-hidden"
           >
-            {item}
+            <span className="truncate min-w-0">
+              {truncateToWidth(item)}
+            </span>
             <button
-              onClick={() => handleRemoveTag(listValue.indexOf(item))}
-              className="ml-0.5 hover:text-destructive shrink-0"
+              onClick={() => handleRemoveTag(index)}
+              className="hover:text-destructive shrink-0 flex-shrink-0"
               disabled={disabled}
+              title="删除"
             >
               <X className="w-3 h-3" />
             </button>
-          </Badge>
+          </div>
         ))}
-        
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <button
-              className="inline-flex items-center gap-1 h-6 px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors border rounded-full hover:bg-secondary"
-            >
-              {hasOverflow ? (
-                <>
-                  +{hiddenCount}
-                  <Search className="w-3 h-3" />
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3 h-3" />
-                  添加
-                </>
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            <div className="flex items-center gap-2 px-4 py-2 border-b">
-              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder={placeholder || '搜索或添加标签...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    e.preventDefault();
-                    handleAddTag(searchQuery);
-                    setIsOpen(false);
-                  }
-                }}
-                className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground pl-2"
-              />
-            </div>
-            
-            <div className="max-h-60 overflow-y-auto p-1">
-              {filteredTags.length === 0 && !showAddPrompt ? (
-                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  暂无标签
+
+        {/* 输入框和添加按钮 */}
+        <div className="flex items-center gap-1 flex-1 min-w-[120px]">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={listValue.length === 0 ? (placeholder || '输入并回车添加...') : ''}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground min-w-[80px] pl-1"
+          />
+          
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                disabled={disabled}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                更多
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <div className="p-3 border-b">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                  已添加的标签 ({listValue.length})
                 </div>
-              ) : (
-                <>
-                  {showAddPrompt && (
-                    <div
-                      className="flex items-center gap-2 px-2 py-2 rounded-md bg-primary/10 text-primary cursor-pointer hover:bg-primary/20"
-                      onClick={() => {
-                        handleAddTag(searchQuery);
-                        setIsOpen(false);
-                      }}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span className="text-sm">添加 "{searchQuery}"</span>
-                      <span className="ml-auto text-xs opacity-70">按 Enter</span>
-                    </div>
-                  )}
-                  
-                  {filteredTags.map((item) => {
-                    const actualIndex = listValue.indexOf(item);
-                    return (
+                {listValue.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">暂无标签</div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {listValue.map((item, index) => (
                       <div
-                        key={item}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer group"
+                        key={index}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent group"
                       >
                         <span className="flex-1 truncate text-sm">{item}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {actualIndex < (visibleCount ?? listValue.length) ? '已显示' : ''}
-                        </span>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveTag(actualIndex);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 hover:text-destructive"
-                          disabled={disabled}
+                          onClick={() => handleCopy(item, index)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded"
+                          title="复制"
+                        >
+                          {copiedIndex === index ? (
+                            <Check className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRemoveTag(index)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded hover:text-destructive"
+                          title="删除"
                         >
                           <X className="w-3 h-3" />
                         </button>
                       </div>
-                    );
-                  })}
-                </>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 选项列表 */}
+              {options && options.length > 0 && (
+                <div className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="搜索可选值..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {filteredOptions.length === 0 ? (
+                      <div className="text-sm text-muted-foreground py-2 text-center">
+                        {searchQuery ? '没有匹配的可选值' : '所有选项都已添加'}
+                      </div>
+                    ) : (
+                      filteredOptions.map((opt) => (
+                        <div
+                          key={opt}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer"
+                          onClick={() => {
+                            handleAddTag(opt);
+                            setIsOpen(false);
+                          }}
+                        >
+                          <span className="flex-1 truncate text-sm">{opt}</span>
+                          <Plus className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   );

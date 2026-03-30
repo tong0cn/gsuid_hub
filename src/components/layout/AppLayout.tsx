@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 function LayoutHeader() {
   const { toggleSidebar } = useSidebar();
@@ -29,7 +30,7 @@ function LayoutHeader() {
             <img src="/app/ICON.png" alt="GsCore" className="w-6 h-6 object-contain" />
           </div>
           <span className="font-semibold">GsCore</span>
-          <span className="font-light text-sm text-muted-foreground">v{import.meta.env.PACKAGE_VERSION || '0.0.4'}</span>
+          <Badge variant="default" className="text-xs font-medium ml-1">v{import.meta.env.PACKAGE_VERSION || '0.0.5'}</Badge>
         </div>
       </div>
       <button onClick={() => navigate('/settings')} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">

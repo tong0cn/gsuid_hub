@@ -4,6 +4,14 @@ export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
+  safelist: [
+    'bg-secondary/30',
+    'bg-secondary/50',
+    'bg-secondary/80',
+    'backdrop-blur-sm',
+    'backdrop-blur-md',
+    'backdrop-blur-lg',
+  ],
   theme: {
   	container: {
   		center: true,

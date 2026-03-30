@@ -271,66 +271,14 @@ export function ConfigField({
         );
 
       case 'multiselect':
-        const multiValue = Array.isArray(value) ? value : [];
         return (
-          <div className="flex flex-wrap items-center gap-1.5 min-h-10 px-3 py-2 border rounded-md bg-background">
-            {multiValue.length === 0 && (
-              <span className="text-muted-foreground text-sm">请选择或输入...</span>
-            )}
-            {multiValue.map((item, index) => (
-              <Badge key={index} variant="secondary" className="gap-1 h-6 text-xs">
-                {item}
-                <button
-                  onClick={() => handleRemoveTag(index)}
-                  className="ml-0.5 hover:text-destructive"
-                  disabled={field.disabled}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Badge>
-            ))}
-            <div className="flex items-center gap-1 flex-1 min-w-[120px]">
-              <Input
-                className="h-6 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 text-xs"
-                placeholder="输入并回车添加..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const val = e.currentTarget.value.trim();
-                    if (val && !multiValue.includes(val)) {
-                      onChange(fieldKey, [...multiValue, val]);
-                      e.currentTarget.value = '';
-                    }
-                  }
-                }}
-                disabled={field.disabled}
-              />
-              {field.options && field.options.length > 0 && (
-                <Select
-                  value=""
-                  onValueChange={(v) => {
-                    if (multiValue.includes(v)) {
-                      onChange(fieldKey, multiValue.filter(item => item !== v));
-                    } else {
-                      onChange(fieldKey, [...multiValue, v]);
-                    }
-                  }}
-                  disabled={field.disabled}
-                >
-                  <SelectTrigger className="border-0 bg-transparent h-6 w-6 p-0 shadow-none focus:ring-0">
-                    <Plus className="w-4 h-4 text-muted-foreground" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {field.options?.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {multiValue.includes(opt) ? `✓ ${opt}` : opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
+          <TagsInput
+            value={Array.isArray(value) ? value : []}
+            onChange={(newValue) => onChange(fieldKey, newValue)}
+            placeholder={displayPlaceholder || '输入并回车添加...'}
+            disabled={field.disabled}
+            options={field.options}
+          />
         );
 
       case 'date':
@@ -518,7 +466,7 @@ export function ConfigField({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className={cn("flex flex-col", className)}>
+      <div className={cn("flex flex-col items-stretch", className)}>
         {showLabel && (
           <Label className="text-sm font-medium text-muted-foreground mb-2 h-5 flex items-center gap-2">
             {getTitleIcon(displayLabel)}

@@ -79,7 +79,7 @@ export default function ThemesPage() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      setBackgroundImage(dataUrl);
+      setBackgroundImage(dataUrl, true);
       toast.success(t('themes.bgUploaded'));
     };
     reader.readAsDataURL(file);
@@ -90,21 +90,21 @@ export default function ThemesPage() {
       toast.error(t('themes.enterImageLink'));
       return;
     }
-    setBackgroundImage(customUrl);
+    setBackgroundImage(customUrl, true);
     setCustomUrl('');
     toast.success(t('themes.bgApplied'));
   };
 
   const clearBackground = () => {
-    setBackgroundImage(null);
+    setBackgroundImage(null, true);
     toast.success(t('themes.bgCleared'));
   };
 
   // 选择背景时自动切换到毛玻璃风格
   const handleSelectBackground = (value: string | null) => {
-    setBackgroundImage(value);
+    setBackgroundImage(value, true);
     if (value && style !== 'glassmorphism') {
-      setStyle('glassmorphism');
+      setStyle('glassmorphism', true);
       toast.success(t('themes.autoSwitchGlass'));
     }
   };

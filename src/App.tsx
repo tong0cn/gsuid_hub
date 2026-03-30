@@ -24,6 +24,8 @@ import PluginStorePage from "@/pages/PluginStorePage";
 import CoreConfigPage from "@/pages/CoreConfigPage";
 import BackupPage from "@/pages/BackupPage";
 import AIConfigPage from "@/pages/AIConfigPage";
+import PersonaConfigPage from "@/pages/PersonaConfigPage";
+import AIToolsPage from "@/pages/AIToolsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -75,6 +77,8 @@ function AppRoutes() {
         <Route path="plugin-store" element={<PluginStorePage />} />
         <Route path="framework-config" element={<FrameworkConfigPage />} />
         <Route path="ai-config" element={<AIConfigPage />} />
+        <Route path="persona-config" element={<PersonaConfigPage />} />
+        <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="core-config" element={<CoreConfigPage />} />
         <Route path="database-config" element={<DatabaseConfigPage />} />
         <Route path="state-config" element={<StateConfigPage />} />

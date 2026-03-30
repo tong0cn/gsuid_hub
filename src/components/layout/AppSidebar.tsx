@@ -1,5 +1,6 @@
-import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { Badge } from '@/components/ui/badge';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -36,7 +37,7 @@ interface NavItem {
 }
 
 // 静态导航配置 - 避免每次渲染重新创建
-const NAV_ITEMS_KEYS = ['dashboard', 'database', 'adminCore', 'logsView', 'aiConfig', 'plugins', 'pluginStore', 'consoleManagement'] as const;
+const NAV_ITEMS_KEYS = ['dashboard', 'database', 'adminCore', 'logsView', 'aiConfig', 'aiPersona', 'plugins', 'pluginStore', 'consoleManagement'] as const;
 
 // 图标映射 - 使用静态对象避免每次渲染重新创建
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -77,7 +78,15 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
       { title: t('sidebar.historyLogs'), url: '/logs', icon: FileText }
     ]
   },
-  { title: t('sidebar.aiConfig'), url: '/ai-config', icon: Brain },
+  {
+    title: t('sidebar.aiConfig'),
+    icon: Brain,
+    children: [
+      { title: t('sidebar.basicConfig'), url: '/ai-config', icon: Cog },
+      { title: t('sidebar.personaConfig'), url: '/persona-config', icon: User },
+      { title: t('sidebar.aiTools'), url: '/ai-tools', icon: Wrench }
+    ]
+  },
   { title: t('sidebar.plugins'), url: '/plugins', icon: Settings },
   { title: t('sidebar.pluginStore'), url: '/plugin-store', icon: Store },
   {
@@ -275,7 +284,7 @@ export function AppSidebar() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-1">
                   <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
-                  <span className="font-light text-sm text-muted-foreground">v{import.meta.env.PACKAGE_VERSION || '0.0.4'}</span>
+                  <Badge variant="default" className="text-xs font-medium">v{import.meta.env.PACKAGE_VERSION || '0.0.5'}</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground">​{t('sidebar.早柚核心')}</span>
               </div>

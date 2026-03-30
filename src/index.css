@@ -209,6 +209,26 @@ All colors MUST be HSL.
   box-shadow: 4px 0 16px hsl(0 0% 0% / 0.08);
 }
 
+/* Glass effect for badge and tag elements - only apply in glassmorphism mode */
+[data-style="glassmorphism"] [class*="bg-secondary"] {
+  background: hsl(var(--secondary) / 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+[data-style="solid"] [class*="bg-secondary"] {
+  background: hsl(var(--secondary)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Glass effect for add button in tag inputs */
+[data-style="glassmorphism"] button.rounded-full {
+  background: hsl(var(--accent) / 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
 .glass-sidebar {
   background: hsl(var(--sidebar) / 0.2) !important;
   border-right: 1px solid hsl(var(--border) / 0.3);
@@ -505,6 +525,27 @@ All colors MUST be HSL.
 /* Sidebar menu button text icons */
 [data-icon-color="colored"] [data-sidebar="menu-button"] text {
   fill: hsl(var(--primary)) !important;
+}
+
+/* Switch component theme styling */
+button[role="switch"][data-state="checked"] {
+  background-color: hsl(var(--primary)) !important;
+}
+
+button[role="switch"][data-state="checked"] span {
+  background-color: hsl(var(--primary-foreground)) !important;
+}
+
+button[role="switch"][data-state="unchecked"] {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark button[role="switch"][data-state="unchecked"] {
+  background-color: hsl(var(--muted-foreground)) !important;
+}
+
+button[role="switch"][data-state="unchecked"] span {
+  background-color: hsl(var(--muted-foreground)) !important;
 }
 
 [data-icon-color="white"] [data-sidebar="menu-button"] text {

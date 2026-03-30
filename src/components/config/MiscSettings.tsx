@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Save, Settings, Sun, Moon, MessageSquare, UserX, Shield, Clock, ListFilter, HelpCircle, Cog } from 'lucide-react';
 import { frameworkConfigApi, FrameworkConfigListItem, PluginConfigItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfigDirty } from '@/contexts/ConfigDirtyContext';
 import { cn } from '@/lib/utils';
-import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
+import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType, TagsInput } from '@/components/config';
 
 interface MiscConfig {
   HelpMode: {
@@ -79,7 +78,6 @@ export default function MiscSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<Record<string, any>>({});
   const [miscConfigName, setMiscConfigName] = useState<string>('');
-  const [blackListInput, setBlackListInput] = useState('');
 
   const miscConfig = useMemo(() => {
     return configs.find(c =>
@@ -278,19 +276,6 @@ export default function MiscSettings() {
     setDirty(hasChanged);
   }, [miscConfig, originalConfig, setDirty]);
 
-  const handleAddBlackList = () => {
-    if (!miscConfig || !blackListInput.trim()) return;
-    const newBlackList = [...miscConfig.config.BlackList.value, blackListInput.trim()];
-    handleChange('BlackList', newBlackList);
-    setBlackListInput('');
-  };
-
-  const handleRemoveBlackList = (index: number) => {
-    if (!miscConfig) return;
-    const newBlackList = miscConfig.config.BlackList.value.filter((_, i) => i !== index);
-    handleChange('BlackList', newBlackList);
-  };
-
   const handleSaveConfig = async () => {
     if (!miscConfig) return;
     try {
@@ -486,44 +471,12 @@ export default function MiscSettings() {
           <CardDescription>{config.BlackList.desc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-3">
-            <Input
-              value={blackListInput}
-              onChange={(e) => setBlackListInput(e.target.value)}
-              placeholder={t('miscConfig.blackListPlaceholder')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddBlackList();
-                }
-              }}
-            />
-            <Button onClick={handleAddBlackList} className="gap-2">
-              <Shield className="w-4 h-4" />
-              {t('miscConfig.add')}
-            </Button>
-          </div>
-
-          {config.BlackList.value.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {config.BlackList.value.map((item, index) => (
-                <Badge key={index} variant="secondary" className="gap-2 px-3 py-1">
-                  <span>{item}</span>
-                  <button
-                    onClick={() => handleRemoveBlackList(index)}
-                    className="hover:text-destructive"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{t('miscConfig.emptyBlackList')}</p>
-            </div>
-          )}
+          <TagsInput
+            value={config.BlackList.value}
+            onChange={(value) => handleChange('BlackList', value)}
+            placeholder={t('miscConfig.blackListPlaceholder')}
+          />
+          <p className="text-sm text-muted-foreground">{config.BlackList.desc}</p>
         </CardContent>
       </Card>
 
