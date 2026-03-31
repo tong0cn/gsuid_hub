@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { HardDrive, Download, Trash2, Play, Archive, Save } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -96,8 +98,11 @@ function formatBytes(bytes: number): string {
 }
 
 export default function BackupPage() {
+  const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
   const { t } = useLanguage();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<string>('settings');
   const [config, setConfig] = useState<Record<string, ConfigFieldDefinition>>({});
   const [selectedPaths, setSelectedPaths] = useState<string[]>([
     'data', 'data/config', 'data/config/settings.json', 'data/config/users.json',
@@ -389,19 +394,19 @@ export default function BackupPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="settings" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="settings" className="gap-2">
-            <Archive className="w-4 h-4" />
-            {t('backup.backupSettings')}
-          </TabsTrigger>
-          <TabsTrigger value="downloads" className="gap-2">
-            <Download className="w-4 h-4" />
-            {t('backup.backupDownload')}
-          </TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <TabButtonGroup
+          options={[
+            { value: 'settings', label: t('backup.backupSettings'), icon: <Archive className="w-4 h-4" /> },
+            { value: 'downloads', label: t('backup.backupDownload'), icon: <Download className="w-4 h-4" /> },
+          ]}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+        />
 
-        <TabsContent value="settings" className="space-y-4">
+        {activeTab === 'settings' && (
+          <div className="space-y-4">
           <Card className="glass-card">
             <CardHeader>
               <CardTitle>{t('backup.basicSettings')}</CardTitle>
@@ -477,9 +482,10 @@ export default function BackupPage() {
               </p>
             </CardContent>
           </Card>
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="downloads">
+        {activeTab === 'downloads' && (
           <Card className="glass-card">
             <CardHeader>
               <CardTitle>{t('backup.backupHistory')}</CardTitle>
@@ -505,9 +511,9 @@ export default function BackupPage() {
                         {format(backup.createdAt, 'yyyy-MM-dd HH:mm', { locale: zhCN })}
                       </TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant={
-                            backup.status === 'completed' ? 'default' : 
+                            backup.status === 'completed' ? 'default' :
                             backup.status === 'in_progress' ? 'secondary' : 'destructive'
                           }
                         >
@@ -517,16 +523,16 @@ export default function BackupPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleDownload(backup)}
                             disabled={backup.status !== 'completed'}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleDeleteClick(backup)}
                             className="text-destructive hover:text-destructive"
@@ -547,8 +553,8 @@ export default function BackupPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

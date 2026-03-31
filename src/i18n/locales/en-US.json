@@ -354,9 +354,11 @@
   },
   "aiTools": {
     "title": "AI Tools",
-    "description": "View available AI tools",
+    "description": "View and manage AI tool functions, grouped by plugin",
     "loadFailed": "Failed to load AI tools",
-    "noTools": "No AI tools available"
+    "noTools": "No AI tools available",
+    "filterByPlugin": "Plugin:",
+    "allPlugins": "All"
   },
   "plugins": {
     "title": "Plugin Configuration",

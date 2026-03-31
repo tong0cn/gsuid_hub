@@ -949,7 +949,7 @@ export interface AITool {
 export interface AIToolsListResponse {
   success: boolean;
   data: {
-    tools: AITool[];
+    tools: Record<string, AITool[]>;
     count: number;
   };
 }
@@ -961,5 +961,5 @@ export const aiToolsApi = {
 
   // 获取指定工具详情
   getToolDetail: (toolName: string) =>
-    api.get<AITool>(`/api/ai/tools/${encodeURIComponent(toolName)}`),
+    api.get<{ status: number; msg: string; data: AITool & { plugin: string } | null }>(`/api/ai/tools/${encodeURIComponent(toolName)}`),
 };

@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import { Wrench, AlertCircle } from 'lucide-react';
 import { aiToolsApi, AITool } from '@/lib/api';
 import { toast } from 'sonner';
@@ -24,13 +25,14 @@ interface ParsedTool {
   title: string;
   summary: string;
   fullDescription: string;
+  plugin: string;
 }
 
 // ============================================================================
 // 工具函数
 // ============================================================================
 
-function parseToolDescription(tool: AITool): ParsedTool {
+function parseToolDescription(tool: AITool, plugin: string): ParsedTool {
   const lines = tool.description.split('\n');
   const firstLine = lines[0];
   // 如果第一行字数小于11，则作为标题
@@ -54,6 +56,7 @@ function parseToolDescription(tool: AITool): ParsedTool {
     title,
     summary,
     fullDescription: tool.description,
+    plugin,
   };
 }
 
@@ -67,16 +70,35 @@ export default function AIToolsPage() {
   const isGlass = style === 'glassmorphism';
 
   // 状态
-  const [tools, setTools] = useState<AITool[]>([]);
+  const [toolsByPlugin, setToolsByPlugin] = useState<Record<string, AITool[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<ParsedTool | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedPlugin, setSelectedPlugin] = useState<string>('all');
+
+  // 获取所有插件列表（core 放在最后）
+  const pluginList = useMemo(() => {
+    const plugins = Object.keys(toolsByPlugin);
+    return ['all', ...plugins.filter(p => p !== 'core').sort(), ...plugins.filter(p => p === 'core')];
+  }, [toolsByPlugin]);
+
+  // 按插件过滤后的工具列表
+  const filteredTools = useMemo(() => {
+    if (selectedPlugin === 'all') {
+      // 返回扁平化的工具列表，同时保留 plugin 信息
+      return Object.entries(toolsByPlugin).flatMap(([plugin, tools]) =>
+        Array.isArray(tools) ? tools.map(tool => ({ ...tool, plugin })) : []
+      );
+    }
+    const pluginTools = toolsByPlugin[selectedPlugin];
+    return Array.isArray(pluginTools) ? pluginTools.map(tool => ({ ...tool, plugin: selectedPlugin })) : [];
+  }, [toolsByPlugin, selectedPlugin]);
 
   // 解析后的工具列表
   const parsedTools = useMemo(() => {
-    return tools.map(parseToolDescription);
-  }, [tools]);
+    return filteredTools.map(tool => parseToolDescription(tool, tool.plugin));
+  }, [filteredTools]);
 
   // 加载工具列表
   useEffect(() => {
@@ -85,9 +107,9 @@ export default function AIToolsPage() {
         setIsLoading(true);
         setError(null);
         // api.get returns data.data directly when status is 0
-        // so getToolsList returns { tools: AITool[], count: number }
-        const data = await aiToolsApi.getToolsList() as unknown as { tools: AITool[]; count: number };
-        setTools(data.tools || []);
+        // tools is now Record<string, AITool[]> grouped by plugin name
+        const data = await aiToolsApi.getToolsList() as unknown as { tools: Record<string, AITool[]>; count: number };
+        setToolsByPlugin(data.tools || {});
       } catch (err) {
         setError(err instanceof Error ? err.message : t('aiTools.loadFailed'));
         toast.error(err instanceof Error ? err.message : t('aiTools.loadFailed'));
@@ -111,6 +133,21 @@ export default function AIToolsPage() {
         <Wrench className="w-8 h-8" />
         <h1 className="text-3xl font-bold">{t('aiTools.title')}</h1>
       </div>
+      <p className="text-muted-foreground mt-1">{t('aiTools.description')}</p>
+
+      {/* 插件过滤器 */}
+      {!isLoading && Object.keys(toolsByPlugin).length > 0 && (
+        <TabButtonGroup
+          options={pluginList.map((plugin) => ({
+            value: plugin,
+            label: plugin === 'all' ? (t('aiTools.allPlugins') || '全部') : plugin,
+            icon: <Wrench className="w-4 h-4" />,
+          }))}
+          value={selectedPlugin}
+          onValueChange={setSelectedPlugin}
+          glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+        />
+      )}
 
       {/* 错误提示 */}
       {error && (
@@ -142,7 +179,7 @@ export default function AIToolsPage() {
             </Card>
           ))}
         </div>
-      ) : tools.length === 0 ? (
+      ) : parsedTools.length === 0 ? (
         <Card className={cn(
           isGlass ? "glass-card" : "border border-border/50"
         )}>
@@ -163,10 +200,17 @@ export default function AIToolsPage() {
               onClick={() => handleToolClick(tool)}
             >
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wrench className="w-5 h-5 text-primary" />
-                  <span className="text-lg">{tool.title}</span>
-                </CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-primary" />
+                    <span className="text-lg">{tool.title}</span>
+                  </CardTitle>
+                  {tool.plugin && tool.plugin !== 'core' && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                      {tool.plugin}
+                    </span>
+                  )}
+                </div>
                 <CardDescription className="text-xs text-muted-foreground font-mono">
                   {tool.name}
                 </CardDescription>

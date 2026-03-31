@@ -874,7 +874,85 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 
 ---
 
-## 10. 关键文件索引
+## 10. TabButtonGroup 组件规范
+
+### 10.1 组件位置
+```
+src/components/ui/TabButtonGroup.tsx
+```
+
+### 10.2 组件说明
+用于替代原有散落的 ToggleGroup 和自定义按钮组，提供统一的标签切换按钮样式。
+
+### 10.3 接口定义
+
+```typescript
+export interface TabButtonOption {
+  value: string;           // 选项值
+  label: string;           // 显示文本
+  icon?: React.ReactNode;   // 可选的图标
+}
+
+interface TabButtonGroupProps {
+  options: TabButtonOption[];    // 选项列表
+  value: string;                  // 当前选中的值
+  onValueChange: (value: string) => void;  // 值变化回调
+  className?: string;             // 自定义容器样式
+  buttonClassName?: string;        // 自定义按钮样式
+  disabled?: boolean;             // 是否禁用
+  glassClassName?: string;        // 毛玻璃/主题专用样式
+}
+```
+
+### 10.4 使用要求
+
+#### 1. 必须导入 useTheme（获取主题状态）
+```tsx
+import { useTheme } from '@/contexts/ThemeContext';
+
+export default function MyPage() {
+  const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
+  // ...
+}
+```
+
+#### 2. 必须传入 glassClassName（主题适配）
+```tsx
+<TabButtonGroup
+  options={[...]}
+  value={selectedValue}
+  onValueChange={setSelectedValue}
+  glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+/>
+```
+
+#### 3. icon 渲染方式
+图标会自动被包裹在 `w-5 h-5 flex-shrink-0 flex items-center justify-center` 的容器中，确保图标大小一致。
+
+### 10.5 已使用该组件的页面
+
+| 页面 | 用途 |
+|------|------|
+| AIConfigPage | AI 配置选择 |
+| AIToolsPage | AI 工具插件过滤 |
+| FrameworkConfigPage | 框架配置选择 |
+| PluginsPage | 插件选择、配置名称切换 |
+| BackupPage | 备份设置/下载切换 |
+
+### 10.6 注意事项
+
+1. **不要使用 w-full** - 组件默认 `inline-flex`，会自动适配内容宽度，不需要父容器设置 `w-full`
+
+2. **换行行为** - 按钮过多时使用 `flex-wrap`，会自动换行到下一行
+
+3. **图标大小** - 统一使用 `w-4 h-4` 或类似大小，组件会自动处理尺寸统一
+
+4. **glassClassName 必传** - 不传会导致页面主题切换时样式不一致
+
+---
+
+## 11. 关键文件索引
 
 | 文件 | 用途 |
 |------|------|

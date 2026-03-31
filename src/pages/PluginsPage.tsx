@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import { Settings, Loader2, ChevronDown, Save, Server, Cog, LayoutGrid, Users, Shield, Filter, Zap, MessageSquare, Key, Command } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
@@ -67,6 +67,7 @@ const convertToPlugin = (plugin: Plugin): any => {
 
 export default function PluginsPage() {
   const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
   const { t } = useLanguage();
   const [pluginList, setPluginList] = useState<PluginListItem[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -355,43 +356,20 @@ export default function PluginsPage() {
         </div>
       </div>
 
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <LayoutGrid className="w-4 h-4" />
-              <span>{t('plugins.pluginSelection')}</span>
-            </div>
-            <div className="flex-1 w-full">
-              <Select
-                value={selectedPluginId}
-                onValueChange={setSelectedPluginId}
-              >
-                <SelectTrigger className="w-full sm:w-[300px] bg-background/50">
-                  <SelectValue placeholder={t('plugins.selectPlugin')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {pluginList.map((plugin) => (
-                    <SelectItem key={plugin.id} value={plugin.id}>
-                      <div className="flex items-center gap-2">
-                        {plugin.icon ? (
-                          <img src={plugin.icon} className="w-4 h-4 rounded-sm" alt="" />
-                        ) : (
-                          <Cog className="w-4 h-4 text-muted-foreground" />
-                        )}
-                        <span>{plugin.name}</span>
-                        {!plugin.enabled && (
-                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1">{t('plugins.pluginDisabled')}</Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <TabButtonGroup
+        options={pluginList.map((plugin) => ({
+          value: plugin.id,
+          label: plugin.name,
+          icon: plugin.icon ? (
+            <img src={plugin.icon} className="w-4 h-4 rounded-sm" alt="" />
+          ) : (
+            <Cog className="w-4 h-4" />
+          ),
+        }))}
+        value={selectedPluginId}
+        onValueChange={setSelectedPluginId}
+        glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+      />
 
       {isLoading || isLoadingDetail ? (
         <Card className="glass-card">
@@ -958,23 +936,15 @@ export default function PluginsPage() {
               <CollapsibleContent className="px-10">
                 {selectedPlugin.config_names && selectedPlugin.config_names.length > 1 && (
                   <div className="mb-4">
-                    <ToggleGroup
-                      type="single"
+                    <TabButtonGroup
+                      options={selectedPlugin.config_names.map((name: string) => ({
+                        value: name,
+                        label: name,
+                      }))}
                       value={selectedConfigName || ''}
                       onValueChange={(val) => val && setSelectedConfigName(val)}
-                      className="justify-start flex-wrap"
-                    >
-                      {selectedPlugin.config_names.map((name: string) => (
-                        <ToggleGroupItem
-                          key={name}
-                          value={name}
-                          variant="outline"
-                          className="px-3 h-8 text-xs"
-                        >
-                          {name}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
+                      glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+                    />
                   </div>
                 )}
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

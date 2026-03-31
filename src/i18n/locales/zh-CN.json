@@ -354,9 +354,11 @@
   },
   "aiTools": {
     "title": "AI 工具",
-    "description": "查看可用的 AI 工具列表",
+    "description": "查看和管理 AI 可用的工具函数，按插件分组",
     "loadFailed": "加载 AI 工具失败",
-    "noTools": "暂无可用的 AI 工具"
+    "noTools": "暂无可用的 AI 工具",
+    "filterByPlugin": "插件:",
+    "allPlugins": "全部"
   },
   "plugins": {
     "title": "插件配置",

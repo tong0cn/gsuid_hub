@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from
 import { frameworkConfigApi, PluginConfigItem, FrameworkConfigListItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 
 // Local config type with converted fields
 interface LocalFrameworkConfig {
@@ -78,6 +80,8 @@ const getDisplayName = (name: string): string => {
 };
 
 export default function AIConfigPage() {
+  const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
   const { t } = useLanguage();
   const [configList, setConfigList] = useState<FrameworkConfigListItem[]>([]);
   const [configs, setConfigs] = useState<LocalFrameworkConfig[]>([]);
@@ -258,29 +262,19 @@ export default function AIConfigPage() {
         </div>
       ) : (
         <>
-          <div ref={containerRef} className="flex items-center justify-between w-full">
+          <div ref={containerRef} className="flex items-center justify-between">
             {canFitTabs ? (
-              <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg border border-border/40 w-fit">
-                {configList.map((config) => (
-                  <button
-                    key={config.id}
-                    onClick={() => setSelectedConfigId(config.id)}
-                    disabled={isLoading}
-                    className={`
-                      relative px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
-                      ${selectedConfigId === config.id
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
-                      }
-                    `}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      {getDisplayName(config.name)}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <TabButtonGroup
+                options={configList.map((config) => ({
+                  value: config.id,
+                  label: getDisplayName(config.name),
+                  icon: <Settings className="w-4 h-4" />,
+                }))}
+                value={selectedConfigId}
+                onValueChange={setSelectedConfigId}
+                disabled={isLoading}
+                glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+              />
             ) : (
               <Card className="glass-card w-full sm:w-fit">
                 <CardContent className="p-4">
