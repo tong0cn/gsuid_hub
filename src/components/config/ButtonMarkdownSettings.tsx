@@ -11,7 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfigDirty } from '@/contexts/ConfigDirtyContext';
 import { cn } from '@/lib/utils';
-import { ConfigField, ConfigFieldDefinition, ConfigValue } from '@/components/config';
+import { ConfigField, ConfigFieldDefinition, ConfigFieldType, ConfigValue } from '@/components/config';
 
 // 平台配置接口 - 适配后端返回的 gsliststr 类型
 interface PlatformConfig {

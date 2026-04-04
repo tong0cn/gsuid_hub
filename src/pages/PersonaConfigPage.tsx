@@ -544,7 +544,10 @@ export default function PersonaConfigPage() {
           <div className="flex-1 overflow-hidden py-4 space-y-4">
             {/* 人设内容编辑 */}
             <div className="space-y-2 flex flex-col">
-              <Label htmlFor="edit-content">{t('personaConfig.personaContent')}</Label>
+              <Label className="flex items-center gap-2" htmlFor="edit-content">
+                <Brain className="h-4 w-4" />
+                {t('personaConfig.personaContent')}
+              </Label>
               <ScrollArea className="rounded-md border p-4 min-h-[300px]">
                 <Textarea
                   id="edit-content"
@@ -557,7 +560,10 @@ export default function PersonaConfigPage() {
             
             {/* 关联群聊编辑 */}
             <div className="space-y-2">
-              <Label>{t('personaConfig.enabledGroups')}</Label>
+              <Label className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {t('personaConfig.enabledGroups')}
+              </Label>
               <TagsInput
                 value={editingGroups}
                 onChange={setEditingGroups}

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench, Sparkles, BookOpen } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -84,7 +84,9 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
     children: [
       { title: t('sidebar.basicConfig'), url: '/ai-config', icon: Cog },
       { title: t('sidebar.personaConfig'), url: '/persona-config', icon: User },
-      { title: t('sidebar.aiTools'), url: '/ai-tools', icon: Wrench }
+      { title: t('sidebar.aiTools'), url: '/ai-tools', icon: Wrench },
+      { title: t('sidebar.aiSkills'), url: '/ai-skills', icon: Sparkles },
+      { title: t('sidebar.aiKnowledge'), url: '/ai-knowledge', icon: BookOpen }
     ]
   },
   { title: t('sidebar.plugins'), url: '/plugins', icon: Settings },
@@ -284,7 +286,7 @@ export function AppSidebar() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-1">
                   <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
-                  <Badge variant="default" className="text-xs font-medium">v{import.meta.env.PACKAGE_VERSION || '0.0.5'}</Badge>
+                  <Badge variant="default" className="text-xs font-medium">v{import.meta.env.PACKAGE_VERSION || '0.0.6'}</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground">​{t('sidebar.早柚核心')}</span>
               </div>

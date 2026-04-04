@@ -30,7 +30,7 @@ function LayoutHeader() {
             <img src="/app/ICON.png" alt="GsCore" className="w-6 h-6 object-contain" />
           </div>
           <span className="font-semibold">GsCore</span>
-          <Badge variant="default" className="text-xs font-medium ml-1">v{import.meta.env.PACKAGE_VERSION || '0.0.5'}</Badge>
+          <Badge variant="default" className="text-xs font-medium ml-1">v{import.meta.env.PACKAGE_VERSION || '0.0.6'}</Badge>
         </div>
       </div>
       <button onClick={() => navigate('/settings')} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">

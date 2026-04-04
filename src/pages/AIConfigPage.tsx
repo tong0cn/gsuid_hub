@@ -1,141 +1,143 @@
-import { useState, useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Settings, Loader2, Save, Cpu } from 'lucide-react';
-import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Cpu, Loader2, Save, Settings, Zap, Users, Ban, CheckCircle,
+  Sparkles, Search, Brain, Shield, Key, Globe, Clock, MessageSquare,
+  Lightbulb, Layers
+} from 'lucide-react';
+import { ChipGroup } from '@/components/ui/MultiSelectChipGroup';
 import { frameworkConfigApi, PluginConfigItem, FrameworkConfigListItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
+import { cn } from '@/lib/utils';
+import { ConfigField, ConfigValue } from '@/components/config';
 
-// Local config type with converted fields
+// ===================
+// Types
+// ===================
+
 interface LocalFrameworkConfig {
   id: string;
   name: string;
   full_name: string;
-  config: Record<string, ConfigFieldDefinition>;
+  config: Record<string, PluginConfigItem>;
 }
 
-// Convert API config to local config type
-const convertToConfig = (config: Record<string, PluginConfigItem>): Record<string, ConfigFieldDefinition> => {
-  const result: Record<string, ConfigFieldDefinition> = {};
-  for (const [key, value] of Object.entries(config)) {
-    const configItem = value as PluginConfigItem;
-    let type: ConfigFieldType = 'text';
-    const rawType = configItem.type?.toLowerCase() || '';
-    
-    if (rawType.includes('bool')) {
-      type = 'boolean';
-    } else if (rawType.includes('int')) {
-      type = 'number';
-    } else if (rawType.includes('list') || rawType.includes('array')) {
-      type = configItem.options ? 'multiselect' : 'tags';
-    } else if (rawType.includes('gstimer')) {
-      type = 'time';
-    } else if (rawType.includes('time') || rawType.includes('date')) {
-      type = 'date';
-    } else if (rawType.includes('str') || rawType.includes('string')) {
-      type = configItem.options ? 'select' : 'text';
-    } else if (rawType.includes('dict') || rawType.includes('object')) {
-      type = 'text';
-      if (typeof configItem.value === 'object' && configItem.value !== null) {
-        configItem.value = JSON.stringify(configItem.value, null, 2);
-      }
-      if (typeof configItem.default === 'object' && configItem.default !== null) {
-        configItem.default = JSON.stringify(configItem.default, null, 2);
-      }
-    } else if (rawType.includes('image')) {
-      type = 'image';
-    }
-    
-    result[key] = {
-      value: configItem.value as ConfigValue,
-      default: configItem.default,
-      type,
-      label: configItem.title || key,
-      placeholder: configItem.desc || '请输入内容',
-      options: configItem.options,
-      description: configItem.desc || key,
-      required: false,
-      disabled: false,
-      rawType: configItem.type,
-      upload_to: configItem.upload_to,
-      filename: configItem.filename,
-      suffix: configItem.suffix,
-    } as unknown as ConfigFieldDefinition & { default: unknown; rawType: string };
-  }
-  return result;
-};
+// AI模式配置 - 使用i18n键
+const getAIModes = (t: any) => [
+  {
+    value: '提及应答',
+    label: t('aiConfig.actionMode.mentionResponse'),
+    desc: t('aiConfig.actionMode.mentionResponseDesc'),
+    icon: MessageSquare,
+    color: 'text-blue-500'
+  },
+  {
+    value: '定时巡检',
+    label: t('aiConfig.actionMode.scheduledInspection'),
+    desc: t('aiConfig.actionMode.scheduledInspectionDesc'),
+    icon: Clock,
+    color: 'text-green-500'
+  },
+  {
+    value: '趣向捕捉(暂不可用)',
+    label: t('aiConfig.actionMode.interestCapture'),
+    desc: t('aiConfig.actionMode.interestCaptureDesc'),
+    icon: Lightbulb,
+    color: 'text-yellow-500',
+    disabled: true
+  },
+  {
+    value: '困境救场(暂不可用)',
+    label: t('aiConfig.actionMode.troubleRescue'),
+    desc: t('aiConfig.actionMode.troubleRescueDesc'),
+    icon: Shield,
+    color: 'text-purple-500',
+    disabled: true
+  },
+];
 
-// Remove "AI " prefix from config name for display
-const getDisplayName = (name: string): string => {
-  // Handle names starting with "AI " (including leading space)
-  const trimmed = name.trimStart();
-  if (trimmed.toLowerCase().startsWith('ai ')) {
-    return trimmed.substring(3);
-  }
-  return trimmed;
-};
+// 模型支持能力 - 使用i18n键
+const getModelCapabilities = (t: any) => [
+  { value: 'text', label: t('aiConfig.serviceProvider.capabilityText'), icon: MessageSquare, color: 'bg-blue-500' },
+  { value: 'image', label: t('aiConfig.serviceProvider.capabilityImage'), icon: Sparkles, color: 'bg-green-500' },
+  { value: 'audio', label: t('aiConfig.serviceProvider.capabilityAudio'), icon: Cpu, color: 'bg-yellow-500' },
+  { value: 'video', label: t('aiConfig.serviceProvider.capabilityVideo'), icon: Zap, color: 'bg-purple-500' },
+];
 
 export default function AIConfigPage() {
   const { style } = useTheme();
   const isGlass = style === 'glassmorphism';
   const { t } = useLanguage();
+  
+  // State
   const [configList, setConfigList] = useState<FrameworkConfigListItem[]>([]);
-  const [configs, setConfigs] = useState<LocalFrameworkConfig[]>([]);
-  const [selectedConfigId, setSelectedConfigId] = useState<string>('');
+  const [configs, setConfigs] = useState<Record<string, LocalFrameworkConfig>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Track original state for change detection
+  // Track original state - only set once after initial load
   const [originalConfig, setOriginalConfig] = useState<Record<string, any>>({});
+  const [hasInitialized, setHasInitialized] = useState(false);
   
-  // Check if tabs can fit in one row
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [canFitTabs, setCanFitTabs] = useState(true);
+  // Get configs by type
+  const aiConfig = useMemo(() => {
+    return Object.values(configs).find(c => 
+      c.name.includes('AI配置') || c.full_name.includes('AI配置')
+    );
+  }, [configs]);
   
-  useLayoutEffect(() => {
-    const checkFit = () => {
-      if (!containerRef.current) return;
-      const containerWidth = containerRef.current.offsetWidth;
-      const tabWidth = configList.length * 140 + 16; // Approximate tab width + padding
-      setCanFitTabs(containerWidth >= tabWidth);
-    };
-    
-    checkFit();
-    window.addEventListener('resize', checkFit);
-    return () => window.removeEventListener('resize', checkFit);
-  }, [configList.length]);
+  const openaiConfig = useMemo(() => {
+    return Object.values(configs).find(c => 
+      c.name.includes('OpenAI配置') || c.full_name.includes('OpenAI配置')
+    );
+  }, [configs]);
   
-  // Get current selected config
-  const selectedConfig = useMemo(() => {
-    return configs.find(c => c.id === selectedConfigId);
-  }, [configs, selectedConfigId]);
+  const embeddingConfig = useMemo(() => {
+    return Object.values(configs).find(c => 
+      c.name.includes('嵌入模型配置') || c.full_name.includes('嵌入模型配置')
+    );
+  }, [configs]);
   
-  // Change detection
+  const rerankConfig = useMemo(() => {
+    return Object.values(configs).find(c => 
+      c.name.includes('Rerank模型配置') || c.full_name.includes('Rerank模型配置')
+    );
+  }, [configs]);
+  
+  const tavilyConfig = useMemo(() => {
+    return Object.values(configs).find(c => 
+      c.name.includes('Tavily搜索配置') || c.full_name.includes('Tavily搜索配置')
+    );
+  }, [configs]);
+  
+  // Derived state
+  const isAIEnabled = aiConfig?.config.enable?.value as boolean ?? false;
+  const isRerankEnabled = aiConfig?.config.enable_rerank?.value as boolean ?? false;
+  const websearchProvider = aiConfig?.config.websearch_provider?.value as string ?? 'Tavily';
+  
+  // Check if config has changes
   const isConfigDirty = useMemo(() => {
-    if (!selectedConfig) return false;
-    return JSON.stringify(selectedConfig.config) !== JSON.stringify(originalConfig);
-  }, [selectedConfig?.config, originalConfig]);
+    if (Object.keys(originalConfig).length === 0) return false;
+    return JSON.stringify(configs) !== JSON.stringify(originalConfig);
+  }, [configs, originalConfig]);
   
-  // Fetch AI config list from API (轻量级接口)
+  // Fetch config list
   const fetchConfigList = async () => {
     try {
       setIsLoading(true);
       const data = await frameworkConfigApi.getFrameworkConfigList('GsCore AI');
-      // Filter out 人设配置 since it already exists in 人格配置 page
       const filteredData = data.filter(config =>
         !config.name.toLowerCase().includes('人设')
       );
       setConfigList(filteredData);
-      
-      // If has configs and none selected, select first
-      if (data.length > 0) {
-        setSelectedConfigId(data[0].id);
-      }
     } catch (error) {
       console.error('Failed to fetch AI config list:', error);
       toast({
@@ -147,27 +149,22 @@ export default function AIConfigPage() {
       setIsLoading(false);
     }
   };
-
-  // Fetch config detail for a specific config
+  
+  // Fetch config detail
   const fetchConfigDetail = async (configName: string) => {
     try {
       setIsLoadingDetail(true);
       const data = await frameworkConfigApi.getFrameworkConfig(configName);
-      const converted = {
-        ...data,
-        config: convertToConfig(data.config)
-      };
       
-      setConfigs(prev => {
-        // Remove existing config with same id if exists, then add new one
-        const filtered = prev.filter(c => c.id !== data.id);
-        return [...filtered, converted];
-      });
-      
-      // If this is the selected config, set original config
-      if (data.id === selectedConfigId) {
-        setOriginalConfig(JSON.parse(JSON.stringify(converted.config)));
-      }
+      setConfigs(prev => ({
+        ...prev,
+        [data.id]: {
+          id: data.id,
+          name: data.name,
+          full_name: data.full_name,
+          config: data.config as Record<string, PluginConfigItem>,
+        }
+      }));
     } catch (error) {
       console.error('Failed to fetch AI config detail:', error);
       toast({
@@ -184,176 +181,576 @@ export default function AIConfigPage() {
     fetchConfigList();
   }, []);
   
-  // Fetch detail when selected config changes
   useEffect(() => {
-    if (selectedConfigId && configList.length > 0) {
-      // Check if we already have the detail for this config
-      const existingConfig = configs.find(c => c.id === selectedConfigId);
-      if (!existingConfig) {
-        // Need to fetch detail for this config
-        const configInfo = configList.find(c => c.id === selectedConfigId);
-        if (configInfo) {
-          fetchConfigDetail(configInfo.full_name);
+    if (configList.length > 0) {
+      configList.forEach(config => {
+        if (!configs[config.id]) {
+          fetchConfigDetail(config.full_name);
         }
-      }
+      });
     }
-  }, [selectedConfigId, configList, configs, fetchConfigDetail]);
+  }, [configList]);
   
-  // Update original state when selected config changes
   useEffect(() => {
-    if (selectedConfig) {
-      setOriginalConfig(JSON.parse(JSON.stringify(selectedConfig.config)));
+    if (Object.keys(configs).length > 0 && !hasInitialized) {
+      setOriginalConfig(JSON.parse(JSON.stringify(configs)));
+      setHasInitialized(true);
     }
-  }, [selectedConfig?.id]);
+  }, [configs, hasInitialized]);
   
-  const updateConfigValue = useCallback((fieldKey: string, value: ConfigValue) => {
-    setConfigs(prev =>
-      prev.map(c =>
-        c.id === selectedConfigId
-          ? {
-              ...c,
-              config: {
-                ...c.config,
-                [fieldKey]: { ...c.config[fieldKey], value },
-              },
-            }
-          : c
-      )
-    );
-  }, [selectedConfigId]);
+  // Update config value
+  const updateConfigValue = useCallback((configId: string, fieldKey: string, value: ConfigValue) => {
+    setConfigs(prev => {
+      if (!prev[configId]) return prev;
+      return {
+        ...prev,
+        [configId]: {
+          ...prev[configId],
+          config: {
+            ...prev[configId].config,
+            [fieldKey]: { ...prev[configId].config[fieldKey], value },
+          },
+        }
+      };
+    });
+  }, []);
   
+  // Handle save
   const handleSaveConfig = async () => {
-    if (!selectedConfig) return;
     try {
       setIsSaving(true);
-      const configToSave: Record<string, any> = {};
-      Object.entries(selectedConfig.config).forEach(([key, field]: [string, any]) => {
-        configToSave[key] = field.value;
-      });
-      await frameworkConfigApi.updateFrameworkConfig(selectedConfig.full_name, configToSave);
-      setOriginalConfig(JSON.parse(JSON.stringify(selectedConfig.config)));
+      
+      // Save all configs that have been loaded
+      for (const [configId, config] of Object.entries(configs)) {
+        const configToSave: Record<string, any> = {};
+        
+        // Extract just the values from the config
+        Object.entries(config.config).forEach(([key, field]: [string, any]) => {
+          if (field && typeof field === 'object' && 'value' in field) {
+            configToSave[key] = field.value;
+          }
+        });
+        
+        console.log('Saving config:', config.full_name, configToSave);
+        await frameworkConfigApi.updateFrameworkConfig(config.full_name, configToSave);
+      }
+      
+      // Update original config after successful save
+      setOriginalConfig(JSON.parse(JSON.stringify(configs)));
       toast({ title: t('common.success'), description: t('aiConfig.configSaved') });
     } catch (error) {
-      toast({ title: t('common.saveFailed'), description: t('aiConfig.saveFailed') || 'Failed to update AI configuration', variant: 'destructive' });
+      console.error('Save error:', error);
+      toast({
+        title: t('common.saveFailed'),
+        description: t('aiConfig.saveFailed'),
+        variant: 'destructive'
+      });
     } finally {
       setIsSaving(false);
     }
   };
   
+  // Get options
+  const aiModeValue = (aiConfig?.config.ai_mode?.value as string[]) || [];
+  const openaiProviderOptions = (aiConfig?.config.openai_provider?.options || ['openai']) as string[];
+  const embeddingProviderOptions = (aiConfig?.config.embedding_provider?.options || ['local']) as string[];
+  const websearchProviderOptions = (aiConfig?.config.websearch_provider?.options || ['Tavily']) as string[];
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (!aiConfig) {
+    return (
+      <div className="space-y-6 flex-1 overflow-auto p-6 h-full flex flex-col">
+        <div className="text-center text-muted-foreground">{t('aiConfig.noAIConfig')}</div>
+      </div>
+    );
+  }
+  
   return (
-    <div className="space-y-6 flex-1 overflow-auto p-6 h-full flex flex-col">
+    <div className="space-y-4 flex-1 overflow-auto p-6 h-full flex flex-col">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Cpu className="w-8 h-8" />
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="w-6 h-6 text-primary" />
             {t('aiConfig.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">{t('aiConfig.description')}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('aiConfig.description')}
+          </p>
         </div>
+        <Button
+          onClick={handleSaveConfig}
+          disabled={!isConfigDirty || isSaving}
+          size="sm"
+          className="gap-2"
+        >
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          {t('aiConfig.saveButton')}
+        </Button>
       </div>
       
-      {isLoading ? (
+      {isLoadingDetail && Object.keys(configs).length === 0 ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-      ) : configList.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          {t('aiConfig.noAIConfig')}
-        </div>
       ) : (
-        <>
-          <div ref={containerRef} className="flex items-center justify-between">
-            {canFitTabs ? (
-              <TabButtonGroup
-                options={configList.map((config) => ({
-                  value: config.id,
-                  label: getDisplayName(config.name),
-                  icon: <Settings className="w-4 h-4" />,
-                }))}
-                value={selectedConfigId}
-                onValueChange={setSelectedConfigId}
-                disabled={isLoading}
-                glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
-              />
-            ) : (
-              <Card className="glass-card w-full sm:w-fit">
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Settings className="w-4 h-4" />
-                      <span>{t('aiConfig.selectConfig')}</span>
+        <div className="space-y-4">
+          {/* Card 1: 服务开关 */}
+          <Card className={cn("overflow-hidden", isGlass && "glass-card")}>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center",
+                  isAIEnabled ? "bg-green-500/20" : "bg-muted"
+                )}>
+                  <Cpu className={cn(
+                    "w-5 h-5",
+                    isAIEnabled ? "text-green-500" : "text-muted-foreground"
+                  )} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">{t('aiConfig.serviceSwitch.title')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isAIEnabled
+                      ? t('aiConfig.serviceSwitch.enabledDesc')
+                      : t('aiConfig.serviceSwitch.disabledDesc')}
+                  </p>
+                </div>
+                <Switch
+                  checked={isAIEnabled}
+                  onCheckedChange={(checked) => updateConfigValue(aiConfig.id, 'enable', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* AI启用后的配置 */}
+          {isAIEnabled && (
+            <>
+              {/* Card 2: 行动模式 */}
+              <Card className={cn("overflow-hidden", isGlass && "glass-card")}>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <h2 className="text-base font-semibold">{t('aiConfig.actionMode.title')}</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {t('aiConfig.actionMode.description')}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {getAIModes(t).map((mode) => {
+                      const isSelected = aiModeValue.includes(mode.value);
+                      const Icon = mode.icon;
+                      return (
+                        <button
+                          key={mode.value}
+                          onClick={() => {
+                            if (mode.disabled) return;
+                            const newValue = isSelected
+                              ? aiModeValue.filter(v => v !== mode.value)
+                              : [...aiModeValue, mode.value];
+                            updateConfigValue(aiConfig.id, 'ai_mode', newValue);
+                          }}
+                          disabled={mode.disabled}
+                          className={cn(
+                            "p-3 rounded-xl border-2 text-left transition-all",
+                            "hover:shadow-sm",
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30",
+                            mode.disabled && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Icon className={cn("w-4 h-4", mode.color)} />
+                            <span className={cn(
+                              "font-medium text-sm",
+                              isSelected && "text-primary"
+                            )}>
+                              {mode.label}
+                            </span>
+                            {isSelected && (
+                              <CheckCircle className="w-3.5 h-3.5 text-primary ml-auto" />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {mode.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Card 3: 服务提供方（大卡片，无标题，不可折叠） */}
+              <Card className={cn("overflow-hidden", isGlass && "glass-card")}>
+                <CardContent className="p-6 space-y-8">
+                  {/* AI模型服务 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">{t('aiConfig.serviceProvider.aiModelService')}</h3>
                     </div>
-                    <div className="flex-1 w-full">
-                      <Select value={selectedConfigId} onValueChange={setSelectedConfigId}>
-                        <SelectTrigger className="w-full sm:w-[300px] bg-background/50">
-                          <SelectValue placeholder={t('aiConfig.selectConfig')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {configList.map((config) => (
-                            <SelectItem key={config.id} value={config.id}>
-                              <span className="flex items-center gap-2">
-                                <Settings className="w-4 h-4" />
-                                {getDisplayName(config.name)}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    
+                    <ChipGroup
+                      options={openaiProviderOptions.map(p => ({
+                        value: p,
+                        label: p === 'openai' ? t('aiConfig.serviceProvider.openaiCompatible') : p,
+                        icon: <Globe className="w-4 h-4" />,
+                      }))}
+                      value={[aiConfig.config.openai_provider?.value as string].filter(Boolean)}
+                      onValueChange={(newValue) => updateConfigValue(aiConfig.id, 'openai_provider', newValue[0] || '')}
+                      selectMode="single"
+                      showRadioIndicator
+                    />
+                    
+                    {/* OpenAI配置 - 作为子配置展开 */}
+                    {openaiConfig && (
+                      <div className="mt-4 p-5 bg-muted/30 rounded-xl space-y-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Key className="w-4 h-4 text-muted-foreground" />
+                          <h4 className="text-sm font-medium text-muted-foreground">{t('aiConfig.serviceProvider.apiConfig')}</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.apiBaseUrl')}</Label>
+                            <ConfigField
+                              fieldKey="base_url"
+                              field={{
+                                type: 'select',
+                                label: 'base_url',
+                                value: openaiConfig.config.base_url?.value as string || '',
+                                options: openaiConfig.config.base_url?.options as string[] || [],
+                                placeholder: '选择API服务地址',
+                                description: '',
+                              }}
+                              showLabel={false}
+                              onChange={(k, v) => updateConfigValue(openaiConfig.id, k, v)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.apiModel')}</Label>
+                            <ConfigField
+                              fieldKey="model_name"
+                              field={{
+                                type: 'select',
+                                label: 'model_name',
+                                value: openaiConfig.config.model_name?.value as string || '',
+                                options: openaiConfig.config.model_name?.options as string[] || [],
+                                placeholder: '选择AI模型',
+                                description: '',
+                              }}
+                              showLabel={false}
+                              onChange={(k, v) => updateConfigValue(openaiConfig.id, k, v)}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.apiKey')}</Label>
+                          <ConfigField
+                            fieldKey="api_key"
+                            field={{
+                              type: 'tags',
+                              label: 'api_key',
+                              value: (openaiConfig.config.api_key?.value as string[]) || [],
+                              placeholder: '输入API密钥（支持多个）',
+                              description: '',
+                            }}
+                            showLabel={false}
+                            onChange={(k, v) => updateConfigValue(openaiConfig.id, k, v)}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.modelCapabilities')}</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {getModelCapabilities(t).map((cap) => {
+                              const isSelected = ((openaiConfig.config.model_support?.value as string[]) || ['text']).includes(cap.value);
+                              const Icon = cap.icon;
+                              return (
+                                <button
+                                  key={cap.value}
+                                  onClick={() => {
+                                    const current = (openaiConfig.config.model_support?.value as string[]) || ['text'];
+                                    const newValue = isSelected
+                                      ? current.filter(v => v !== cap.value)
+                                      : [...current, cap.value];
+                                    updateConfigValue(openaiConfig.id, 'model_support', newValue);
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all",
+                                    isSelected
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border hover:border-primary/30 text-muted-foreground"
+                                  )}
+                                >
+                                  <Icon className="w-3.5 h-3.5" />
+                                  {cap.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Separator className="bg-border/50" />
+                  
+                  {/* 嵌入模型服务 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">{t('aiConfig.serviceProvider.embeddingService')}</h3>
+                    </div>
+                    
+                    <ChipGroup
+                      options={embeddingProviderOptions.map(p => ({
+                        value: p,
+                        label: p === 'local' ? t('aiConfig.serviceProvider.localModel') : p,
+                        icon: <Brain className="w-4 h-4" />,
+                      }))}
+                      value={[aiConfig.config.embedding_provider?.value as string].filter(Boolean)}
+                      onValueChange={(newValue) => updateConfigValue(aiConfig.id, 'embedding_provider', newValue[0] || '')}
+                      selectMode="single"
+                      showRadioIndicator
+                    />
+                    
+                    {/* 嵌入模型配置 */}
+                    {embeddingConfig && (
+                      <div className="mt-4 p-5 bg-muted/30 rounded-xl space-y-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Layers className="w-4 h-4 text-muted-foreground" />
+                          <h4 className="text-sm font-medium text-muted-foreground">{t('aiConfig.serviceProvider.embeddingConfig')}</h4>
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.embeddingModelName')}</Label>
+                          <ConfigField
+                            fieldKey="embedding_model_name"
+                            field={{
+                              type: 'select',
+                              label: 'embedding_model_name',
+                              value: embeddingConfig.config.embedding_model_name?.value as string || 'BAAI/bge-small-zh-v1.5',
+                              options: embeddingConfig.config.embedding_model_name?.options as string[] || ['BAAI/bge-small-zh-v1.5'],
+                              placeholder: '选择嵌入模型',
+                              description: '',
+                            }}
+                            showLabel={false}
+                            onChange={(k, v) => updateConfigValue(embeddingConfig.id, k, v)}
+                          />
+                        </div>
+                        
+                        {/* Rerank配置 */}
+                        <div className="pt-4 border-t border-border/50">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className={cn("w-4 h-4", isRerankEnabled ? "text-purple-500" : "text-muted-foreground")} />
+                              <span className="text-sm font-medium">{t('aiConfig.serviceProvider.enableRerank')}</span>
+                              <Badge variant="secondary" className="text-xs">{t('aiConfig.serviceProvider.rerankQuality')}</Badge>
+                            </div>
+                            <Switch
+                              checked={isRerankEnabled}
+                              onCheckedChange={(checked) => updateConfigValue(aiConfig.id, 'enable_rerank', checked)}
+                            />
+                          </div>
+                          
+                          {isRerankEnabled && rerankConfig && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.rerankModelName')}</Label>
+                              <ConfigField
+                                fieldKey="rerank_model_name"
+                                field={{
+                                  type: 'select',
+                                  label: 'rerank_model_name',
+                                  value: rerankConfig.config.rerank_model_name?.value as string || 'BAAI/bge-reranker-base',
+                                  options: rerankConfig.config.rerank_model_name?.options as string[] || ['BAAI/bge-reranker-base'],
+                                  placeholder: '选择Rerank模型',
+                                  description: '',
+                                }}
+                                showLabel={false}
+                                onChange={(k, v) => updateConfigValue(rerankConfig.id, k, v)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Separator className="bg-border/50" />
+                  
+                  {/* 网络搜索服务 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Search className="w-5 h-5 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">{t('aiConfig.serviceProvider.webSearchService')}</h3>
+                    </div>
+                    
+                    <ChipGroup
+                      options={websearchProviderOptions.map(p => ({
+                        value: p,
+                        label: p,
+                        icon: <Search className="w-4 h-4" />,
+                      }))}
+                      value={[websearchProvider]}
+                      onValueChange={(newValue) => updateConfigValue(aiConfig.id, 'websearch_provider', newValue[0] || '')}
+                      selectMode="single"
+                      showRadioIndicator
+                    />
+                    
+                    {/* Tavily配置 */}
+                    {websearchProvider === 'Tavily' && tavilyConfig && (
+                      <div className="mt-4 p-5 bg-muted/30 rounded-xl space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Key className="w-4 h-4 text-muted-foreground" />
+                          <h4 className="text-sm font-medium text-muted-foreground">{t('aiConfig.serviceProvider.tavilyConfig')}</h4>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.apiKey')}</Label>
+                          <ConfigField
+                            fieldKey="api_key"
+                            field={{
+                              type: 'tags',
+                              label: 'api_key',
+                              value: (tavilyConfig.config.api_key?.value as string[]) || [],
+                              placeholder: '输入Tavily API密钥',
+                              description: '',
+                            }}
+                            showLabel={false}
+                            onChange={(k, v) => updateConfigValue(tavilyConfig.id, k, v)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.maxResults')}</Label>
+                            <ConfigField
+                              fieldKey="max_results"
+                              field={{
+                                type: 'select',
+                                label: 'max_results',
+                                value: String(tavilyConfig.config.max_results?.value || '10'),
+                                options: (tavilyConfig.config.max_results?.options as string[]) || ['5', '10', '15', '20'],
+                                placeholder: '',
+                                description: '',
+                              }}
+                              showLabel={false}
+                              onChange={(k, v) => updateConfigValue(tavilyConfig.id, k, v)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('aiConfig.serviceProvider.searchDepth')}</Label>
+                            <ConfigField
+                              fieldKey="search_depth"
+                              field={{
+                                type: 'select',
+                                label: 'search_depth',
+                                value: String(tavilyConfig.config.search_depth?.value || 'advanced'),
+                                options: (tavilyConfig.config.search_depth?.options as string[]) || ['basic', 'advanced'],
+                                placeholder: '',
+                                description: '',
+                              }}
+                              showLabel={false}
+                              onChange={(k, v) => updateConfigValue(tavilyConfig.id, k, v)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Card 4: 高级设置（大卡片，无标题，不可折叠） */}
+              <Card className={cn("overflow-hidden", isGlass && "glass-card")}>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <Label className="text-sm font-medium">{t('aiConfig.advancedSettings.thinkingRounds')}</Label>
+                      <Badge variant="outline" className="text-xs">{t('aiConfig.advancedSettings.tokenConsumption')}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <ConfigField
+                        fieldKey="multi_agent_lenth"
+                        field={{
+                          type: 'select',
+                          label: 'multi_agent_lenth',
+                          value: String(aiConfig.config.multi_agent_lenth?.value || 12),
+                          options: ['9', '12', '20', '30'],
+                          placeholder: '',
+                          description: '',
+                        }}
+                        showLabel={false}
+                        onChange={(k, v) => updateConfigValue(aiConfig.id, k, typeof v === 'string' ? parseInt(v) : v)}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {t('aiConfig.advancedSettings.roundsHint')}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Separator className="bg-border/50" />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-green-500" />
+                        <Label className="text-sm font-medium">{t('aiConfig.advancedSettings.whitelist')}</Label>
+                      </div>
+                      <ConfigField
+                        fieldKey="white_list"
+                        field={{
+                          type: 'tags',
+                          label: 'white_list',
+                          value: (aiConfig.config.white_list?.value as string[]) || [],
+                          placeholder: t('aiConfig.advancedSettings.whitelistPlaceholder'),
+                          description: '',
+                        }}
+                        showLabel={false}
+                        onChange={(k, v) => updateConfigValue(aiConfig.id, k, v)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Ban className="w-4 h-4 text-red-500" />
+                        <Label className="text-sm font-medium">{t('aiConfig.advancedSettings.blacklist')}</Label>
+                      </div>
+                      <ConfigField
+                        fieldKey="black_list"
+                        field={{
+                          type: 'tags',
+                          label: 'black_list',
+                          value: (aiConfig.config.black_list?.value as string[]) || [],
+                          placeholder: t('aiConfig.advancedSettings.blacklistPlaceholder'),
+                          description: '',
+                        }}
+                        showLabel={false}
+                        onChange={(k, v) => updateConfigValue(aiConfig.id, k, v)}
+                      />
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-          
-          {!selectedConfig || isLoadingDetail ? (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="w-8 h-8 animate-spin" />
-            </div>
-          ) : (
-            <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  <CardTitle>{getDisplayName(selectedConfig.name)}</CardTitle>
-                </div>
-                <Button
-                  onClick={handleSaveConfig}
-                  disabled={!isConfigDirty || isSaving}
-                  className="gap-2"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  保存配置
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  修改 {getDisplayName(selectedConfig.name)} 相关的配置参数
-                </CardDescription>
-                {Object.keys(selectedConfig.config).length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    该配置组暂无参数配置项
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(selectedConfig.config).map(([key, field]: [string, any]) => (
-                      <ConfigField
-                        key={key}
-                        fieldKey={key}
-                        field={field}
-                        onChange={updateConfigValue}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            </>
           )}
-        </>
+        </div>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Palette, Image, Type, Save } from 'lucide-react';
+import { Loader2, Palette, Image, Type, Save, Bot } from 'lucide-react';
 import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
 import { frameworkConfigApi, PluginConfigItem } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -122,10 +122,39 @@ export default function StateConfigPage() {
   // Group configs by type for better UX
   const boolConfigs = Object.entries(config).filter(([_, field]) => field.type === 'boolean');
   const imageConfigs = Object.entries(config).filter(([_, field]) => field.type === 'image');
-  const selectConfigs = Object.entries(config).filter(([_, field]) => field.type === 'select');
+  // 文本设置: 只保留 CustomTheme 和 CustomSubtitle
+  const selectConfigs = Object.entries(config).filter(([_, field]) =>
+    field.type === 'select' && (field.label === '自定义主题色' || field.label === '自定义副标题')
+  );
+  // 机器人名称设置: CustomName 和 CustomNameAlias
+  const nameConfigs = Object.entries(config).filter(([_, field]) =>
+    field.label === '自定义名称' || field.label === '自定义名称别名'
+  );
 
   return (
     <div className="space-y-6 flex-1 overflow-visible h-full flex flex-col">
+      {/* 机器人名称设置 - 放在第一行 */}
+      {nameConfigs.length > 0 && (
+        <Card className="glass-card">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Bot className="w-5 h-5 text-muted-foreground" />
+              <span className="font-medium">机器人名称设置</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {nameConfigs.map(([key, field]) => (
+                <ConfigField
+                  key={key}
+                  fieldKey={key}
+                  field={field}
+                  onChange={handleConfigChange}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 开关配置 */}
       {boolConfigs.length > 0 && (
         <Card className="glass-card">

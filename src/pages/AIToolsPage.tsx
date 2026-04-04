@@ -129,11 +129,13 @@ export default function AIToolsPage() {
   return (
     <div className="p-6 space-y-6">
       {/* 页面标题 */}
-      <div className="flex items-center gap-3">
-        <Wrench className="w-8 h-8" />
-        <h1 className="text-3xl font-bold">{t('aiTools.title')}</h1>
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-3">
+          <Wrench className="w-8 h-8" />
+          {t('aiTools.title')}
+        </h1>
+        <p className="text-muted-foreground mt-1">{t('aiTools.description')}</p>
       </div>
-      <p className="text-muted-foreground mt-1">{t('aiTools.description')}</p>
 
       {/* 插件过滤器 */}
       {!isLoading && Object.keys(toolsByPlugin).length > 0 && (

@@ -84,7 +84,7 @@ export type ConfigFieldType =
   | 'image'
   | 'password';
 
-export type ConfigValue = string | number | boolean | string[];
+export type ConfigValue = string | number | boolean | string[] | [number, number];
 
 export interface ConfigFieldDefinition {
   type: ConfigFieldType;
@@ -126,8 +126,8 @@ export function ConfigField({
   const displayPlaceholder = field.placeholder?.includes('.') ? t(field.placeholder) : field.placeholder;
 
   const handleAddTag = () => {
-    if (tagInput.trim()) {
-      const currentList = Array.isArray(value) ? value : [];
+    if (tagInput.trim() && Array.isArray(value) && value.every(v => typeof v === 'string')) {
+      const currentList = value as string[];
       if (!currentList.includes(tagInput.trim())) {
         onChange(fieldKey, [...currentList, tagInput.trim()]);
       }
@@ -136,8 +136,10 @@ export function ConfigField({
   };
 
   const handleRemoveTag = (index: number) => {
-    const currentList = Array.isArray(value) ? value : [];
-    onChange(fieldKey, currentList.filter((_, i) => i !== index));
+    if (Array.isArray(value) && value.every(v => typeof v === 'string')) {
+      const currentList = value as string[];
+      onChange(fieldKey, currentList.filter((_, i) => i !== index));
+    }
   };
 
   // Check if this is a simple single-line field
@@ -273,7 +275,7 @@ export function ConfigField({
       case 'multiselect':
         return (
           <TagsInput
-            value={Array.isArray(value) ? value : []}
+            value={Array.isArray(value) && value.every(v => typeof v === 'string') ? value as string[] : []}
             onChange={(newValue) => onChange(fieldKey, newValue)}
             placeholder={displayPlaceholder || '输入并回车添加...'}
             disabled={field.disabled}
@@ -323,7 +325,7 @@ export function ConfigField({
       case 'tags':
         return (
           <TagsInput
-            value={Array.isArray(value) ? value : []}
+            value={Array.isArray(value) && value.every(v => typeof v === 'string') ? value as string[] : []}
             onChange={(newValue) => onChange(fieldKey, newValue)}
             placeholder={displayPlaceholder}
             disabled={field.disabled}

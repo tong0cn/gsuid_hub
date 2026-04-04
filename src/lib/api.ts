@@ -946,6 +946,85 @@ export interface AITool {
   description: string;
 }
 
+// ===================
+// AI Skills Types
+// ===================
+
+export interface AISkill {
+  name: string;
+  description: string;
+  content: string;
+  license: string | null;
+  compatibility: string | null;
+  uri: string;
+  metadata: {
+    homepage?: string;
+  };
+}
+
+export interface AISkillDetail extends AISkill {
+  resources: Array<{
+    name: string;
+    description: string | null;
+    uri: string;
+  }>;
+  scripts: Array<{
+    name: string;
+    description: string | null;
+    uri: string | null;
+  }>;
+}
+
+export interface AISkillsListResponse {
+  skills: AISkill[];
+  count: number;
+}
+
+// ===================
+// AI Skills API
+// ===================
+
+export interface AISkillMarkdownResponse {
+  skill_name: string;
+  content: string;
+  path: string;
+}
+
+export interface AISkillCloneResponse {
+  skill_name: string;
+}
+
+export const aiSkillsApi = {
+  // 获取 AI 技能列表
+  getSkillsList: () =>
+    api.get<AISkillsListResponse>('/api/ai/skills/list'),
+
+  // 获取指定技能详情
+  getSkillDetail: (skillName: string) =>
+    api.get<AISkillDetail>(`/api/ai/skills/${encodeURIComponent(skillName)}`),
+
+  // 删除 AI 技能
+  deleteSkill: (skillName: string) =>
+    api.delete<{ msg: string }>(`/api/ai/skills/${encodeURIComponent(skillName)}`),
+
+  // 从 Git 克隆 AI 技能
+  cloneSkill: (gitUrl: string, skillName?: string) =>
+    api.post<AISkillCloneResponse>('/api/ai/skills/clone', {
+      git_url: gitUrl,
+      skill_name: skillName,
+    }),
+
+  // 获取 AI 技能 Markdown 内容
+  getSkillMarkdown: (skillName: string) =>
+    api.get<AISkillMarkdownResponse>(`/api/ai/skills/${encodeURIComponent(skillName)}/markdown`),
+
+  // 更新 AI 技能 Markdown 内容
+  updateSkillMarkdown: (skillName: string, content: string) =>
+    api.put<{ msg: string }>(`/api/ai/skills/${encodeURIComponent(skillName)}/markdown`, {
+      content,
+    }),
+};
+
 export interface AIToolsListResponse {
   success: boolean;
   data: {
@@ -962,4 +1041,83 @@ export const aiToolsApi = {
   // 获取指定工具详情
   getToolDetail: (toolName: string) =>
     api.get<{ status: number; msg: string; data: AITool & { plugin: string } | null }>(`/api/ai/tools/${encodeURIComponent(toolName)}`),
+};
+
+// ===================
+// AI Knowledge Base API
+// ===================
+
+export interface AIKnowledgeItem {
+  id: string;
+  plugin: string;
+  title: string;
+  content: string;
+  tags: string[];
+  source: string;
+}
+
+export interface AIKnowledgeListResponse {
+  list: AIKnowledgeItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  next_offset: number | null;
+  page: number;
+  page_size: number;
+}
+
+export interface AIKnowledgeSearchResponse {
+  results: AIKnowledgeItem[];
+  count: number;
+  query: string;
+}
+
+export interface AIKnowledgeCreateRequest {
+  plugin?: string;
+  title: string;
+  content: string;
+  tags: string[];
+}
+
+export interface AIKnowledgeUpdateRequest {
+  title?: string;
+  content?: string;
+  tags?: string[];
+}
+
+export const aiKnowledgeApi = {
+  // 获取知识库列表（分页）
+  getKnowledgeList: (params: { offset?: number; limit?: number; source?: string; page?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.page !== undefined) query.set('page', String(params.page));
+    if (params.offset !== undefined) query.set('offset', String(params.offset));
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.source) query.set('source', params.source);
+    return api.get<AIKnowledgeListResponse>(`/api/ai/knowledge/list?${query.toString()}`);
+  },
+
+  // 获取知识详情
+  getKnowledgeDetail: (entityId: string) =>
+    api.get<AIKnowledgeItem>(`/api/ai/knowledge/${encodeURIComponent(entityId)}`),
+
+  // 新增知识
+  createKnowledge: (data: AIKnowledgeCreateRequest) =>
+    api.post<{ id: string; title: string }>('/api/ai/knowledge', data),
+
+  // 更新知识
+  updateKnowledge: (entityId: string, data: AIKnowledgeUpdateRequest) =>
+    api.put<{ id: string }>(`/api/ai/knowledge/${encodeURIComponent(entityId)}`, data),
+
+  // 删除知识
+  deleteKnowledge: (entityId: string) =>
+    api.delete<{ id: string }>(`/api/ai/knowledge/${encodeURIComponent(entityId)}`),
+
+  // 搜索知识
+  searchKnowledge: (query: string, limit: number = 10, source: string = 'all') => {
+    const params = new URLSearchParams();
+    params.set('query', query);
+    params.set('limit', String(limit));
+    params.set('source', source);
+    return api.get<AIKnowledgeSearchResponse>(`/api/ai/knowledge/search?${params.toString()}`);
+  },
 };

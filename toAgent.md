@@ -806,6 +806,39 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 - **Badge**: 状态标签、群聊标签
 - **ScrollArea**: 编辑器滚动区域
 
+#### 9.8.8 弹窗小标题 ICON 规范
+
+在弹窗内容中，如果存在多个分区小标题（如"内容"、"关联群聊"等），**仅在弹窗内的分区标题添加 ICON**，卡片列表页面本身的小标题不需要添加 ICON。
+
+示例（在 Dialog 弹窗内）：
+```tsx
+<div className="space-y-4">
+  {/* 人设内容编辑 */}
+  <div className="space-y-2 flex flex-col">
+    <Label className="flex items-center gap-2">
+      <Brain className="h-4 w-4" />
+      {t('personaConfig.personaContent')}
+    </Label>
+    <Textarea ... />
+  </div>
+  
+  {/* 关联群聊编辑 */}
+  <div className="space-y-2">
+    <Label className="flex items-center gap-2">
+      <User className="h-4 w-4" />
+      {t('personaConfig.enabledGroups')}
+    </Label>
+    <TagsInput ... />
+  </div>
+</div>
+```
+
+**规范要点**：
+- ICON 只加在打开的卡片/弹窗上
+- 卡片列表页面中的小标题不需要 ICON
+- 使用 `flex items-center gap-2` 布局
+- 图标大小统一使用 `h-4 w-4`
+
 ---
 
 ### 8.9 性能优化注意事项
@@ -964,3 +997,147 @@ export default function MyPage() {
 | `src/lib/api.ts` | API 接口封装 |
 | `tailwind.config.ts` | Tailwind 配置 |
 | `src/components/ui/` | shadcn/ui 组件库 |
+
+---
+
+## 5. AI配置页面开发记录
+
+### 5.1 任务概述
+
+为【AI配置】->【基础配置】创建了一个渐进式配置页面，将多个相关配置融合成一个统一且用户友好的界面。
+
+### 5.2 设计原则
+
+1. **渐进式披露（Progressive Disclosure）**
+   - 核心配置默认展开，用户一目了然
+   - 高级配置默认折叠，减少认知负担
+   - 根据用户选择动态显示相关配置（如启用Rerank后显示Rerank模型配置）
+
+2. **配置分组**
+   - 按功能将配置分成逻辑组：基础配置、服务提供方、模型配置、搜索配置等
+   - 每组有清晰的标题和描述
+
+3. **兼容性设计**
+   - 使用 `EXPECTED_CONFIG_KEYS` 记录已知配置项
+   - 预料之外的配置项自动归入"其他配置项"区域
+   - 确保后端新增配置时前端不会崩溃
+
+### 5.3 新增组件
+
+#### ChipGroup (`src/components/ui/MultiSelectChipGroup.tsx`)
+
+基于 `ButtonMarkdownSettings` 中的平台选择样式，通用化了一个Chip选择组件。**已重命名并增强**：
+
+```tsx
+// 类型定义
+interface ChipOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  color?: string;
+  disabled?: boolean;
+}
+
+interface ChipGroupProps {
+  options: ChipOption[];
+  value: string[];
+  onValueChange: (value: string[]) => void;
+  className?: string;
+  chipClassName?: string;
+  disabled?: boolean;
+  allowEmpty?: boolean;
+  /** 选择模式：'multiple' 多选（默认），'single' 单选 */
+  selectMode?: 'multiple' | 'single';
+  /** 单选模式时显示单选指示器 */
+  showRadioIndicator?: boolean;
+}
+```
+
+**使用示例：**
+
+```tsx
+// 多选模式（默认）
+<ChipGroup
+  options={[
+    { value: 'mention', label: '提及应答' },
+    { value: 'schedule', label: '定时巡检' },
+    { value: 'capture', label: '趣向捕捉', disabled: true },
+  ]}
+  value={['mention', 'schedule']}
+  onValueChange={(newValue) => setSelectedModes(newValue)}
+/>
+
+// 单选模式
+<ChipGroup
+  options={[
+    { value: 'openai', label: 'OpenAI兼容' },
+    { value: 'claude', label: 'Claude' },
+  ]}
+  value={['openai']}
+  onValueChange={(newValue) => setProvider(newValue[0])}
+  selectMode="single"
+  showRadioIndicator
+/>
+```
+
+### 5.4 关键实现
+
+1. **层级化的配置结构**
+   - 服务提供方作为一级配置，包含AI模型、嵌入模型、网络搜索
+   - API配置作为AI模型服务的子配置展开
+   - 嵌入模型配置包含嵌入模型名称和Rerank配置
+   - Rerank作为嵌入模型的子配置，启用后可修改Rerank模型
+
+2. **一体化布局设计**
+   - 移除Card组件，使用连贯的section组织内容
+   - 页面占满全宽，使用 `p-6` 内边距
+   - 使用 `Separator` 分隔不同功能模块
+
+3. **可折叠的Section**
+   - 服务提供方、高级设置可以折叠/展开
+   - 使用 `expandedSections` 状态管理展开状态
+   - 点击section标题可以切换展开/折叠
+
+4. **渐进式披露（Progressive Disclosure）**
+   - AI服务开关始终显示在最顶部
+   - AI启用后，才显示行动模式、服务提供方等配置
+   - 使用条件渲染 `{isAIEnabled && (...)}` 控制显示
+
+5. **每个配置项都有图标**
+   - 所有配置项（包括思考轮数、白名单、黑名单）都有对应图标
+   - 图标统一放在Label前面，增强视觉识别
+
+6. **行动模式卡片式选择**
+   - 使用 2x2 网格布局展示4个行动模式
+   - 每个模式有彩色图标、标题和简短描述
+   - 选中状态有视觉反馈（边框变色、勾选标记）
+
+7. **消除重复标签**
+   - 每个配置项使用独立的 `<Label>` 组件显示标题
+   - `ConfigField` 组件设置 `showLabel={false}` 避免内部标签重复
+
+8. **动态配置展开**
+   - 选择特定 provider 后，下方自动显示相关配置
+   - 使用圆角背景和缩进区分主配置和子配置
+
+### 5.5 未来需要注意的点
+
+1. **类型安全**
+   - `PluginConfigItem` 已从 `@/lib/api` 导出，避免重复定义
+   - 使用 `frameworkConfigApi` 的类型定义，而非手动定义
+
+2. **后端兼容性**
+   - 后端可能返回新的配置项，必须有兜底处理
+   - 使用 `EXPECTED_CONFIG_KEYS` 映射表识别已知配置
+
+3. **组件复用**
+   - 类似的平台选择、模式选择场景优先使用 `MultiSelectChipGroup`
+   - 如有需要可扩展 `color`、`icon` 等属性
+
+4. **状态管理**
+   - 对于复杂的配置页面，考虑使用 `useReducer` 替代多个 `useState`
+   - 避免深层嵌套的 `useCallback` 依赖链
+
+5. **渐进式体验**
+   - 核心功能放在前面，复杂配置默认折叠
+   - 根据用户操作动态显示/隐藏相关配置（如启用开关后显示详细配置）

@@ -329,7 +329,7 @@ export default function BackupPage() {
   };
 
   const showWebDAVConfig = Array.isArray(config.backup_method?.value)
-    ? config.backup_method.value.includes('web_dav')
+    ? (config.backup_method.value as string[]).includes('web_dav')
     : String(config.backup_method?.value || '').includes('web_dav');
   
   // 如果启用了 WebDAV 备份方式，确保 WebDAV 配置字段存在
