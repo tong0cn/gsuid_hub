@@ -117,6 +117,10 @@ export default function LogsPage() {
   const [errorCount, setErrorCount] = useState(0);
   const [debugCount, setDebugCount] = useState(0);
   
+  // 增量更新相关状态
+  const [lastLogId, setLastLogId] = useState<number | null>(null);
+  const [hasNewLogs, setHasNewLogs] = useState(false);
+  
   // 滚动容器引用
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -146,6 +150,12 @@ export default function LogsPage() {
         per_page: perPage,
       });
       setLogs(data.rows);
+      
+      // 记录最后一条日志的ID用于增量更新
+      if (data.rows.length > 0 && data.rows[0].id) {
+        setLastLogId(data.rows[0].id);
+      }
+      setHasNewLogs(false);
     } catch (error) {
       console.error('Failed to fetch logs:', error);
       const errorMessage = error instanceof Error ? error.message : t('common.loadFailed');
@@ -158,17 +168,50 @@ export default function LogsPage() {
       setIsLoading(false);
     }
   }, [selectedDate, levelFilter, currentPage, perPage, t]);
+  
+  // 增量获取新日志 - 只获取比lastLogId更新的日志
+  const fetchIncrementalLogs = useCallback(async () => {
+    // 只在第一页且没有搜索条件时进行增量更新
+    if (currentPage !== 1 || searchTerm) return;
+    
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    try {
+      // 获取最新统计
+      const statsData = await logsApi.getStats({
+        date: dateStr,
+        level: levelFilter === 'all' ? undefined : levelFilter,
+        per_page: perPage,
+      });
+      
+      // 检查是否有新日志
+      if (statsData.total > totalCount) {
+        setHasNewLogs(true);
+        // 可选：自动获取新日志或显示提示
+        // 这里只更新统计，让用户手动刷新以查看新日志
+        setTotalCount(statsData.total);
+        if (statsData.info_count !== undefined) setInfoCount(statsData.info_count);
+        if (statsData.warn_count !== undefined) setWarnCount(statsData.warn_count);
+        if (statsData.error_count !== undefined) setErrorCount(statsData.error_count);
+        if (statsData.debug_count !== undefined) setDebugCount(statsData.debug_count);
+      }
+    } catch (error) {
+      console.error('Failed to fetch incremental logs:', error);
+    }
+  }, [selectedDate, levelFilter, perPage, currentPage, searchTerm, totalCount]);
 
   // Fetch logs when filters change
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh every 60 seconds - 使用增量更新代替全量刷新
   useEffect(() => {
-    const interval = setInterval(fetchLogs, 60000);
+    const interval = setInterval(() => {
+      // 使用增量更新检查新日志，而不是全量刷新
+      fetchIncrementalLogs();
+    }, 60000);
     return () => clearInterval(interval);
-  }, [fetchLogs]);
+  }, [fetchIncrementalLogs]);
 
   // Fetch available dates on mount
   useEffect(() => {
@@ -205,8 +248,12 @@ export default function LogsPage() {
   const rowVirtualizer = useVirtualizer({
     count: filteredLogs.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 90, // 估计每行高度
-    overscan: 5, // 预渲染额外5项
+    estimateSize: () => 80, // 优化估计高度
+    overscan: 3, // 减少预渲染数量，降低内存占用
+    measureElement: (el) => {
+      // 动态测量实际高度，处理展开/折叠状态
+      return el.getBoundingClientRect().height;
+    },
   });
 
   const handleRefresh = () => {
@@ -390,6 +437,21 @@ export default function LogsPage() {
         </CardContent>
       </Card>
 
+      {/* New Logs Notification */}
+      {hasNewLogs && (
+        <div className="shrink-0 px-6">
+          <div
+            className="bg-primary/10 border border-primary/30 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-primary/20 transition-colors"
+            onClick={handleRefresh}
+          >
+            <span className="text-sm text-primary font-medium">
+              有新日志可用，点击刷新查看
+            </span>
+            <RefreshCw className="w-4 h-4 text-primary" />
+          </div>
+        </div>
+      )}
+
       {/* Log List with Virtual Scrolling */}
       <Card className="glass-card flex-1 min-h-0 flex flex-col">
         <CardHeader className="shrink-0">
@@ -397,11 +459,12 @@ export default function LogsPage() {
         </CardHeader>
         <CardContent className="flex-1 min-h-0 p-0">
           {/* 虚拟滚动容器 - 使用原生overflow-auto */}
-          <div 
+          <div
             ref={scrollRef}
             className="h-full overflow-auto"
             style={{
-              contain: 'strict', // CSS性能优化
+              contain: 'strict', // CSS性能优化 - 创建独立渲染层
+              willChange: 'scroll-position', // 提示浏览器优化滚动
             }}
           >
             {filteredLogs.length === 0 ? (
@@ -421,13 +484,16 @@ export default function LogsPage() {
                   return (
                     <div
                       key={log.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
                       style={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         width: '100%',
-                        height: `${virtualRow.size}px`,
                         transform: `translateY(${virtualRow.start}px)`,
+                        // 使用transform实现GPU加速定位
+                        willChange: 'transform',
                       }}
                     >
                       <LogEntryItem

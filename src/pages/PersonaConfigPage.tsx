@@ -344,7 +344,7 @@ export default function PersonaConfigPage() {
                 alt={persona.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/ICON.png';
+                  (e.target as HTMLImageElement).src = 'ICON.png';
                 }}
               />
             </div>

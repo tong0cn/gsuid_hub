@@ -174,12 +174,19 @@ All colors MUST be HSL.
     0 8px 32px hsl(0 0% 0% / 0.08),
     inset 0 1px 0 hsl(var(--primary) / 0.06);
   min-width: 0;
+  /* GPU加速提示 - 仅在毛玻璃模式下生效 */
+  will-change: auto;
 }
 
 /* Apply backdrop-filter only in glassmorphism mode */
 [data-style="glassmorphism"] .glass-card {
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  /* 提示浏览器优化backdrop-filter渲染 */
+  will-change: backdrop-filter;
+  /* 强制GPU层合成 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Dark mode optimization - avoid bright white glare */
@@ -235,12 +242,16 @@ All colors MUST be HSL.
   box-shadow:
     4px 0 24px hsl(0 0% 0% / 0.06),
     inset 0 1px 0 hsl(var(--primary) / 0.05);
+  will-change: auto;
 }
 
 /* Apply backdrop-filter only in glassmorphism mode */
 [data-style="glassmorphism"] .glass-sidebar {
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  will-change: backdrop-filter;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* 移动端模式下毛玻璃侧边栏使用直角 */
@@ -258,12 +269,16 @@ All colors MUST be HSL.
     0 8px 32px hsl(0 0% 0% / 0.1),
     0 4px 16px hsl(0 0% 0% / 0.06),
     inset 0 1px 0 hsl(var(--primary) / 0.06);
+  will-change: auto;
 }
 
 /* Apply backdrop-filter only in glassmorphism mode */
 [data-style="glassmorphism"] .floating-sidebar {
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  will-change: backdrop-filter;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Solid mode - remove glass effect from dropdown/popover elements */
@@ -302,18 +317,23 @@ All colors MUST be HSL.
 [data-style="glassmorphism"] [class*="popover"] {
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  will-change: backdrop-filter;
+  transform: translateZ(0);
 }
 
 /* Terminal specific glass style */
 .glass-terminal {
   background: hsl(240 10% 8% / 0.9);
   border: 1px solid hsl(var(--border) / 0.2);
+  will-change: auto;
 }
 
 /* Apply backdrop-filter only in glassmorphism mode */
 [data-style="glassmorphism"] .glass-terminal {
   backdrop-filter: blur(var(--blur-intensity, 12px));
   -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  will-change: backdrop-filter;
+  transform: translateZ(0);
 }
 
 /* Icon color variations based on data-icon-color attribute */
@@ -376,6 +396,8 @@ All colors MUST be HSL.
   [data-style="glassmorphism"] .ui-select-trigger {
     backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
+    /* 限制输入框的will-change，避免过多GPU层 */
+    will-change: backdrop-filter;
   }
   
   input:focus,
@@ -443,6 +465,8 @@ All colors MUST be HSL.
   background: hsl(var(--background) / 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  will-change: backdrop-filter;
+  transform: translateZ(0);
 }
 
 /* Custom scrollbar */

@@ -289,6 +289,14 @@ class ApiClient {
       credentials: 'include', // Include cookies for authentication
     });
 
+    // Handle 401 Unauthorized - redirect to login
+    if (response.status === 401) {
+      setAuthToken(null);
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      throw new Error('会话已过期，请重新登录');
+    }
+
     const data: ApiResponse<T> = await response.json();
 
     if (data.status !== 0) {
@@ -338,6 +346,14 @@ class ApiClient {
       headers,
       credentials: 'include',
     });
+
+    // Handle 401 Unauthorized - redirect to login
+    if (response.status === 401) {
+      setAuthToken(null);
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      throw new Error('会话已过期，请重新登录');
+    }
 
     const data: ApiResponse<T> = await response.json();
     return data;
@@ -741,6 +757,14 @@ export const authApi = {
       body: formData,
       credentials: 'include',
     });
+
+    // Handle 401 Unauthorized - redirect to login
+    if (response.status === 401) {
+      setAuthToken(null);
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      throw new Error('会话已过期，请重新登录');
+    }
 
     const data: ApiResponse<{ avatar: string }> = await response.json();
     if (data.status !== 0) {

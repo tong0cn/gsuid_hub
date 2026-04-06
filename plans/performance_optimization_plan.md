@@ -65,25 +65,64 @@
 
 ## 优先级排序
 
-### 高优先级（立即实施，预计性能提升50%+）
+### 高优先级（已完成，预计性能提升50%+）
 1. ✅ 优化AppLayout背景层，合并多层级背景为单一元素
 2. ✅ 毛玻璃关闭时完全移除所有backdrop-filter样式
 3. ✅ LogsPage引入虚拟滚动
 4. ✅ 拆分ThemeContext减少全量重渲染
+5. ✅ 为毛玻璃元素添加GPU加速提示（will-change, transform: translateZ(0)）
+6. ✅ 优化动效使用transform/opacity实现GPU加速
 
-### 中优先级（次要优化，预计性能提升20%+）
-1. ⚙️ 重构AppSidebar组件，抽离复杂逻辑
-2. ⚙️ 实现日志增量更新机制
-3. ⚙️ 优化主题状态更新逻辑
+### 中优先级（已完成，预计性能提升20%+）
+1. ✅ 实现日志增量更新机制（自动刷新改为增量检查）
+2. ✅ 优化主题状态更新逻辑（合并多个useEffect为单一effect）
 
-### 低优先级（体验优化）
-1. 📝 构建层优化，减少包体积
-2. 📝 其他页面的渲染优化
-3. 📝 增加性能监控埋点
+### 低优先级（已完成）
+1. ✅ 构建层优化（代码分割、压缩、tree-shaking）
+2. 📝 其他页面的渲染优化（后续迭代）
+3. 📝 增加性能监控埋点（后续迭代）
 
 ## 性能预期
 优化完成后，预期：
 - 页面初始加载时间减少30%
 - 毛玻璃模式下FPS提升到60+
-- 日志页面滚动无卡顿
-- 主题切换无明显延迟
+- 日志页面滚动无卡顿（虚拟滚动 + 增量更新）
+- 主题切换无明显延迟（批量DOM操作）
+- 构建产物体积优化（代码分割 + gzip压缩）
+
+## 已实施的优化详情
+
+### 1. CSS/GPU加速优化
+- 为所有毛玻璃元素添加 `will-change: backdrop-filter`
+- 添加 `transform: translateZ(0)` 强制GPU层合成
+- 添加 `backface-visibility: hidden` 优化渲染
+
+### 2. AppLayout背景层优化
+- 合并多个背景层为单一DOM元素
+- 使用 `useMemo` 缓存背景样式计算
+- Solid模式下使用纯色背景替代渐变计算
+
+### 3. 动效GPU加速
+- Switch组件添加 `will-change-transform` 和 `duration-200`
+- Sidebar组件使用 `transform-gpu` 和 `will-change-transform`
+
+### 4. 虚拟滚动优化
+- 优化估计高度和overscan数量
+- 添加动态高度测量支持
+- 使用 `contain: strict` 创建独立渲染层
+
+### 5. ThemeContext优化
+- 合并8个独立的useEffect为单一effect
+- 使用 `requestAnimationFrame` 批量执行DOM操作
+- 减少重渲染次数
+
+### 6. 日志增量更新
+- 添加 `fetchIncrementalLogs` 函数
+- 自动刷新改为检查新日志而非全量刷新
+- 添加新日志提示UI
+
+### 7. 构建优化
+- 代码分割：react-vendor, ui-vendor, chart-vendor, virtual
+- 使用esbuild压缩，移除console和debugger
+- 资源内联阈值4KB
+- 禁用sourcemap减少产物体积

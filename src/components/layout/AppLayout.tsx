@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SidebarProvider, SidebarInset, useSidebar } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
@@ -27,7 +28,7 @@ function LayoutHeader() {
         </Button>
         <div className="flex items-center gap-1">
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src="/app/ICON.png" alt="GsCore" className="w-6 h-6 object-contain" />
+            <img src="ICON.png" alt="GsCore" className="w-6 h-6 object-contain" />
           </div>
           <span className="font-semibold">GsCore</span>
           <Badge variant="default" className="text-xs font-medium ml-1">v{import.meta.env.PACKAGE_VERSION || '0.0.6'}</Badge>
@@ -62,6 +63,9 @@ function LayoutContent() {
       position: 'fixed',
       inset: 0,
       zIndex: -10,
+      // GPU加速优化
+      willChange: 'transform',
+      transform: 'translateZ(0)',
     };
 
     if (isGlassmorphism) {
@@ -78,14 +82,14 @@ function LayoutContent() {
           backgroundAttachment: 'fixed',
         };
       }
-      // 默认毛玻璃渐变
+      // 默认毛玻璃渐变 - 使用更简单的渐变减少GPU计算
       return {
         ...baseStyle,
-        background: 'linear-gradient(135deg, hsl(var(--primary) / 0.1) 0%, hsl(var(--background)) 50%, hsl(var(--accent) / 0.1) 100%)',
+        background: `linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--background)) 100%)`,
       };
     }
 
-    // Solid 模式
+    // Solid 模式 - 纯色背景，无渐变计算
     if (isImage) {
       return {
         ...baseStyle,
@@ -98,25 +102,34 @@ function LayoutContent() {
     }
     return {
       ...baseStyle,
-      background: 'linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--secondary) / 0.3) 100%)',
+      // Solid模式下使用纯色背景，避免渐变计算
+      background: 'hsl(var(--background))',
     };
   };
 
+  // 毛玻璃叠加层样式 - 仅在需要时渲染
+  const overlayStyle = useMemo<React.CSSProperties | null>(() => {
+    if (!isGlassmorphism || backgroundImage) return null;
+    return {
+      position: 'fixed',
+      inset: 0,
+      zIndex: -9,
+      pointerEvents: 'none',
+      backdropFilter: `blur(${blurIntensity}px)`,
+      WebkitBackdropFilter: `blur(${blurIntensity}px)`,
+      // GPU加速
+      willChange: 'backdrop-filter',
+      transform: 'translateZ(0)',
+    };
+  }, [isGlassmorphism, backgroundImage, blurIntensity]);
+
   return (
     <>
-      {/* 合并后的单一背景层 */}
-      <div style={getBackgroundStyle()} />
+      {/* 合并后的单一背景层 - 使用GPU加速 */}
+      <div style={getBackgroundStyle()} aria-hidden="true" />
 
-      {/* 毛玻璃模式下的额外叠加层（仅毛玻璃模式需要） */}
-      {isGlassmorphism && !backgroundImage && (
-        <div
-          className="fixed inset-0 -z-10 pointer-events-none"
-          style={{
-            backdropFilter: `blur(${blurIntensity}px)`,
-            WebkitBackdropFilter: `blur(${blurIntensity}px)`,
-          }}
-        />
-      )}
+      {/* 毛玻璃模式下的额外叠加层（仅毛玻璃模式且无背景图时需要） */}
+      {overlayStyle && <div style={overlayStyle} aria-hidden="true" />}
 
       {/*
         LAYOUT STRUCTURE:
@@ -127,7 +140,9 @@ function LayoutContent() {
       <AppSidebar />
       <SidebarInset
         className={cn(
-          "flex flex-col overflow-hidden transition-transform"
+          "flex flex-col overflow-hidden",
+          // 使用transform代替transition-all，减少重绘
+          "transform-gpu"
         )}
       >
         <LayoutHeader />

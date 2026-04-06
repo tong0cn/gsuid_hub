@@ -297,53 +297,43 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 应用主题颜色 - 合并到单一effect
+  // 批量应用所有主题设置到DOM - 合并为单一effect减少重绘
   useEffect(() => {
     if (!isInitialized) return;
-    applyThemeToDOM(themeColors);
-  }, [themeColors, isInitialized]);
-
-  // 应用模式
-  useEffect(() => {
-    if (!isInitialized) return;
-    localStorage.setItem('theme_mode', mode);
-    document.documentElement.classList.toggle('dark', mode === 'dark');
-  }, [mode, isInitialized]);
-
-  // 应用风格
-  useEffect(() => {
-    if (!isInitialized) return;
-    localStorage.setItem('theme_style', style);
-    document.documentElement.setAttribute('data-style', style);
-  }, [style, isInitialized]);
-
-  // 保存其他设置
-  useEffect(() => {
-    if (!isInitialized) return;
-    localStorage.setItem('theme_color', color);
-    localStorage.setItem('theme_preset', themePreset);
-  }, [color, themePreset, isInitialized]);
-
-  useEffect(() => {
-    if (!isInitialized) return;
-    if (backgroundImage) {
-      localStorage.setItem('theme_bg', backgroundImage);
-    } else {
-      localStorage.removeItem('theme_bg');
-    }
-  }, [backgroundImage, isInitialized]);
-
-  useEffect(() => {
-    if (!isInitialized) return;
-    localStorage.setItem('theme_blur', blurIntensity.toString());
-    document.documentElement.style.setProperty('--blur-intensity', `${blurIntensity}px`);
-  }, [blurIntensity, isInitialized]);
-
-  useEffect(() => {
-    if (!isInitialized) return;
-    localStorage.setItem('theme_icon_color', iconColor);
-    document.documentElement.setAttribute('data-icon-color', iconColor);
-  }, [iconColor, isInitialized]);
+    
+    // 批量DOM操作，使用requestAnimationFrame确保在同一帧内完成
+    const applyTheme = () => {
+      // 应用主题颜色
+      applyThemeToDOM(themeColors);
+      
+      // 应用模式
+      localStorage.setItem('theme_mode', mode);
+      document.documentElement.classList.toggle('dark', mode === 'dark');
+      
+      // 应用风格
+      localStorage.setItem('theme_style', style);
+      document.documentElement.setAttribute('data-style', style);
+      
+      // 保存其他设置到localStorage
+      localStorage.setItem('theme_color', color);
+      localStorage.setItem('theme_preset', themePreset);
+      
+      if (backgroundImage) {
+        localStorage.setItem('theme_bg', backgroundImage);
+      } else {
+        localStorage.removeItem('theme_bg');
+      }
+      
+      localStorage.setItem('theme_blur', blurIntensity.toString());
+      document.documentElement.style.setProperty('--blur-intensity', `${blurIntensity}px`);
+      
+      localStorage.setItem('theme_icon_color', iconColor);
+      document.documentElement.setAttribute('data-icon-color', iconColor);
+    };
+    
+    // 使用requestAnimationFrame确保批量执行
+    requestAnimationFrame(applyTheme);
+  }, [themeColors, mode, style, color, themePreset, backgroundImage, blurIntensity, iconColor, isInitialized]);
 
   // 保存到后端的统一方法
   const saveToBackend = useCallback(async (overrides?: Partial<typeof configRef.current>) => {

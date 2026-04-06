@@ -220,7 +220,7 @@ const Sidebar = React.forwardRef<
           hasFloatingPadding && "p-3",
           side === "left" ? "left-0" : "right-0",
           // GPU-accelerated transform animation
-          "transition-transform duration-200 ease-out will-change-transform",
+          "transition-transform duration-200 ease-out will-change-transform transform-gpu",
         )}
         style={{
           width: expandedWidth,
@@ -237,8 +237,8 @@ const Sidebar = React.forwardRef<
           className={cn(
             "flex h-full flex-col overflow-hidden",
             variant === "floating" && "rounded-2xl",
-            // Smooth clip animation for icon mode
-            "transition-[width] duration-200 ease-out",
+            // Smooth clip animation for icon mode - 使用transform代替width动画
+            "transition-transform duration-200 ease-out will-change-transform",
             className?.includes('floating-sidebar') || className?.includes('glass-sidebar') 
               ? '' 
               : 'bg-sidebar group-data-[variant=floating]:shadow-xl group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border',

@@ -280,7 +280,7 @@ export function AppSidebar() {
         <div className={cn("flex items-center w-full", isCollapsed ? "justify-center" : "justify-between")}>
           <div className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
-              <img src="/app/ICON.png" alt="GsCore" className="w-8 h-8 object-contain" />
+              <img src="ICON.png" alt="GsCore" className="w-8 h-8 object-contain" />
             </div>
             {!isCollapsed && (
               <div className="flex flex-col">
