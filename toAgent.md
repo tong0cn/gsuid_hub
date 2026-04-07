@@ -1141,3 +1141,66 @@ interface ChipGroupProps {
 5. **渐进式体验**
    - 核心功能放在前面，复杂配置默认折叠
    - 根据用户操作动态显示/隐藏相关配置（如启用开关后显示详细配置）
+
+---
+
+## 6. 列表页面与详情页设计规范
+
+### 6.1 表格行点击打开详情页
+
+对于使用表格（Table）展示数据的列表页面：
+- **点击表格中任意行应打开二级详情页面**
+- 不应仅依赖编辑按钮打开详情
+- 使用 `onClick` 事件处理行点击，通过事件冒泡 `e.stopPropagation()` 避免与操作按钮冲突
+
+```tsx
+<TableRow
+key={item.id}
+className="cursor-pointer"
+onClick={() => handleViewDetail(item)}
+>
+<TableCell>...</TableCell>
+<TableCell>
+ {/* 操作按钮需要阻止冒泡 */}
+ <Button onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>
+   <Pencil className="w-4 h-4" />
+ </Button>
+</TableCell>
+</TableRow>
+```
+
+### 6.2 二级详情页标题规范
+
+二级详情页面（如弹窗 Dialog）的标题需要：
+- **添加小 ICON**：与页面主标题风格一致，使用 `flex items-center gap-3` 布局
+- **明确的字段间隔区分**：使用分隔线或间距区分不同字段区域
+- **ICON 只加在打开的卡片/弹窗上**
+- **卡片列表页面中的小标题不需要 ICON**
+
+正确示例：
+```tsx
+<DialogHeader>
+<DialogTitle className="flex items-center gap-3">
+ <MessageSquare className="w-5 h-5" />
+ {selectedPrompt?.title}
+</DialogTitle>
+</DialogHeader>
+<div className="space-y-4 py-4">
+{/* 使用 Card 或分隔线区分不同字段区域 */}
+<div className="border-b pb-2">
+ <Label className="text-muted-foreground">{t('systemPrompt.descField')}</Label>
+ <p className="mt-1">{selectedPrompt?.desc}</p>
+</div>
+<div className="border-b pb-2">
+ <Label className="text-muted-foreground">{t('systemPrompt.contentField')}</Label>
+ <pre className="mt-1 whitespace-pre-wrap">{selectedPrompt?.content}</pre>
+</div>
+</div>
+```
+
+### 6.3 字段分组与间隔
+
+详情页中的字段应按逻辑分组：
+- 使用 `<Separator />` 或 `border-b` 分隔不同分组
+- 每个分组有清晰的 Label 说明
+- 保持一致的间距（通常 `space-y-4` 或 `gap-4`）

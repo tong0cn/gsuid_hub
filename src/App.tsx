@@ -28,6 +28,7 @@ import PersonaConfigPage from "@/pages/PersonaConfigPage";
 import AIToolsPage from "@/pages/AIToolsPage";
 import AISkillsPage from "@/pages/AISkillsPage";
 import AIKnowledgePage from "@/pages/AIKnowledgePage";
+import SystemPromptPage from "@/pages/SystemPromptPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -83,6 +84,7 @@ function AppRoutes() {
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="ai-skills" element={<AISkillsPage />} />
         <Route path="ai-knowledge" element={<AIKnowledgePage />} />
+        <Route path="system-prompt" element={<SystemPromptPage />} />
         <Route path="core-config" element={<CoreConfigPage />} />
         <Route path="database-config" element={<DatabaseConfigPage />} />
         <Route path="state-config" element={<StateConfigPage />} />

@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import {
   Table,
@@ -21,7 +19,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -48,6 +45,7 @@ import {
 import { BookOpen, Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Loader2, Sparkles, FileText } from 'lucide-react';
 import { aiKnowledgeApi, AIKnowledgeItem } from '@/lib/api';
 import { toast } from 'sonner';
+import { FormCard } from '@/components/FormCard';
 
 // ============================================================================
 // 类型定义
@@ -220,10 +218,18 @@ export default function AIKnowledgePage() {
     }
   };
 
-  // 查看详情
-  const handleViewDetail = async (item: AIKnowledgeItem) => {
+  // 点击行打开编辑
+  const handleOpenEdit = async (item: AIKnowledgeItem) => {
     setSelectedKnowledge(item);
-    setDetailDialogOpen(true);
+    setFormData({
+      id: item.id,
+      plugin: item.plugin,
+      title: item.title,
+      content: item.content,
+      tags: item.tags || [],
+    });
+    setIsEditMode(true);
+    setDialogOpen(true);
   };
 
   // 分页
@@ -355,7 +361,7 @@ export default function AIKnowledgePage() {
                 </TableHeader>
                 <TableBody>
                   {displayList.map((item) => (
-                    <TableRow key={item.id} className="cursor-pointer" onClick={() => handleViewDetail(item)}>
+                    <TableRow key={item.id} className="cursor-pointer" onClick={() => handleOpenEdit(item)}>
                       <TableCell className="font-medium truncate">{item.title}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">{item.plugin}</Badge>
@@ -448,123 +454,28 @@ export default function AIKnowledgePage() {
       {/* 新增/编辑 Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{isEditMode ? t('aiKnowledge.edit') : t('aiKnowledge.add')}</DialogTitle>
-            <DialogDescription>
-              {isEditMode ? t('aiKnowledge.editDescription') : t('aiKnowledge.addDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              {isEditMode && (
-                <div className="space-y-2">
-                  <Label htmlFor="id">{t('aiKnowledge.id')}</Label>
-                  <Input
-                    id="id"
-                    value={formData.id}
-                    disabled
-                    placeholder={t('aiKnowledge.idPlaceholder')}
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="plugin">{t('aiKnowledge.plugin')}</Label>
-                <Input
-                  id="plugin"
-                  value={formData.plugin}
-                  onChange={(e) => setFormData({ ...formData, plugin: e.target.value })}
-                  disabled={isEditMode}
-                  placeholder="manual"
-                />
-              </div>
+          <FormCard
+            type="knowledge"
+            mode="edit"
+            data={formData}
+            onChange={(key, value) => setFormData({ ...formData, [key]: value })}
+            showId={false}
+          />
+          <DialogFooter className="flex items-center justify-between">
+            {isEditMode && (
+              <span className="text-sm text-muted-foreground">
+                ID: {formData.id}
+              </span>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {t('common.save')}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">{t('aiKnowledge.titleField')} *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder={t('aiKnowledge.titlePlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tags">{t('aiKnowledge.tags')}</Label>
-              <Input
-                id="tags"
-                value={formData.tags.join(', ')}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
-                })}
-                placeholder={t('aiKnowledge.tagsPlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="content">{t('aiKnowledge.content')} *</Label>
-              <Textarea
-                id="content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder={t('aiKnowledge.contentPlaceholder')}
-                rows={6}
-                className="font-mono text-sm"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t('common.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 详情 Dialog */}
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              {selectedKnowledge?.title}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedKnowledge?.id} - {selectedKnowledge?.source}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedKnowledge && (
-            <div className="space-y-4 py-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{selectedKnowledge.plugin}</Badge>
-                {selectedKnowledge.tags?.map((tag, i) => (
-                  <Badge key={i} variant="outline">{tag}</Badge>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {t('aiKnowledge.content')}
-                </Label>
-                <div className="p-4 bg-muted/50 rounded-lg font-mono text-sm whitespace-pre-wrap">
-                  {selectedKnowledge.content}
-                </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {t('aiKnowledge.plugin')}: {selectedKnowledge.plugin}
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
-              {t('common.close')}
-            </Button>
-            <Button onClick={() => { setDetailDialogOpen(false); if (selectedKnowledge) handleOpenEditDialog(selectedKnowledge); }}>
-              <Pencil className="h-4 w-4 mr-2" />
-              {t('common.edit')}
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
