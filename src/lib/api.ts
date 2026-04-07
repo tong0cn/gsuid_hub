@@ -1147,6 +1147,103 @@ export const aiKnowledgeApi = {
 };
 
 // ===================
+// History Manager API - /api/history
+// ===================
+
+export interface SessionInfo {
+  session_id: string;
+  session_key: string;
+  type: 'private' | 'group';
+  group_id: string | null;
+  user_id: string | null;
+  message_count: number;
+  last_access: number | null;
+  created_at: number | null;
+}
+
+export interface SessionHistoryTextResponse {
+  session_id: string;
+  content: string;
+  count: number;
+}
+
+export interface SessionHistoryMessage {
+  role: string;
+  content: string;
+  user_id?: string;
+  user_name?: string | null;
+  timestamp?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SessionHistoryJSONResponse {
+  session_id: string;
+  messages: SessionHistoryMessage[];
+  count: number;
+}
+
+export interface SessionHistoryOpenAIResponse {
+  session_id: string;
+  messages: Array<{ role: string; content: string }>;
+  count: number;
+}
+
+export interface ClearHistoryResponse {
+  session_id: string;
+  cleared?: boolean;
+  deleted?: boolean;
+}
+
+export interface SessionPersonaResponse {
+  session_id: string;
+  persona_content: string | null;
+}
+
+export interface HistoryStats {
+  history_manager: {
+    total_sessions: number;
+    total_messages: number;
+    group_sessions: number;
+    max_messages_per_session: number;
+  };
+  ai_router_sessions: {
+    count: number;
+    sessions: Record<string, {
+      session_id: string;
+      last_access: number;
+      created_at: number;
+      history_length: number;
+    }>;
+  };
+}
+
+export const historyApi = {
+  // 获取所有 Session 列表
+  getSessions: () =>
+    api.get<SessionInfo[]>('/api/history/sessions'),
+
+  // 获取指定 Session 的历史记录
+  getSessionHistory: (sessionId: string, formatType: 'text' | 'json' | 'messages' = 'text') =>
+    api.get<SessionHistoryTextResponse | SessionHistoryJSONResponse | SessionHistoryOpenAIResponse>(
+      `/api/history/${encodeURIComponent(sessionId)}?format_type=${formatType}`
+    ),
+
+  // 清空指定 Session 的历史记录
+  clearSessionHistory: (sessionId: string, deleteSession: boolean = false) =>
+    api.delete<ClearHistoryResponse>(
+      `/api/history/${encodeURIComponent(sessionId)}?delete_session=${deleteSession}`
+    ),
+
+  // 获取指定 Session 的 Persona 内容
+  getSessionPersona: (sessionId: string) =>
+    api.get<SessionPersonaResponse>(`/api/history/${encodeURIComponent(sessionId)}/persona`),
+
+  // 获取历史管理器统计信息
+  getStats: () =>
+    api.get<HistoryStats>('/api/history/stats'),
+};
+
+// ===================
 // System Prompt API - /api/ai/system_prompt
 // ===================
 
