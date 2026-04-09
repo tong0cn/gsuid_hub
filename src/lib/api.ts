@@ -893,9 +893,22 @@ export const themeApi = {
 // Persona APIs
 // ===================
 
+export interface PersonaListItem {
+  name: string;
+  has_avatar: boolean;
+  has_image: boolean;
+  has_audio: boolean;
+}
+
 export interface PersonaInfo {
   name: string;
   content: string;
+  metadata?: {
+    name: string;
+    has_avatar: boolean;
+    has_image: boolean;
+    has_audio: boolean;
+  };
 }
 
 export interface PersonaCreateRequest {
@@ -909,6 +922,14 @@ export interface PersonaCreateResponse {
 }
 
 export interface PersonaAvatarResponse {
+  path: string;
+}
+
+export interface PersonaImageResponse {
+  path: string;
+}
+
+export interface PersonaAudioResponse {
   path: string;
 }
 
@@ -938,7 +959,7 @@ export interface PersonaFrameworkConfig {
 export const personaApi = {
   // 获取角色列表
   getPersonaList: () =>
-    api.get<string[]>('/api/persona/list'),
+    api.get<PersonaListItem[]>('/api/persona/list'),
 
   // 获取角色详情
   getPersona: (personaName: string) =>
@@ -955,6 +976,50 @@ export const personaApi = {
   // 上传角色头像
   uploadAvatar: (personaName: string, imageData: string) =>
     api.post<PersonaAvatarResponse>(`/api/persona/${encodeURIComponent(personaName)}/avatar`, { image: imageData }),
+
+  // 上传角色立绘
+  uploadImage: (personaName: string, imageData: string) =>
+    api.post<PersonaImageResponse>(`/api/persona/${encodeURIComponent(personaName)}/image`, { image: imageData }),
+
+  // 上传角色音频
+  uploadAudio: (personaName: string, audioData: string, format: string = 'mp3') =>
+    api.post<PersonaAudioResponse>(`/api/persona/${encodeURIComponent(personaName)}/audio`, { audio: audioData, format }),
+
+  // 获取角色头像URL
+  getAvatarUrl: (personaName: string, timestamp?: number) => {
+    const token = getAuthToken();
+    const baseUrl = `${getCustomApiHost()}/api/persona/${encodeURIComponent(personaName)}/avatar`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (timestamp) params.set('t', String(timestamp));
+    return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+  },
+
+  // 获取角色立绘URL
+  getImageUrl: (personaName: string, timestamp?: number) => {
+    const token = getAuthToken();
+    const baseUrl = `${getCustomApiHost()}/api/persona/${encodeURIComponent(personaName)}/image`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (timestamp) params.set('t', String(timestamp));
+    return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+  },
+
+  // 获取角色音频URL
+  getAudioUrl: (personaName: string, timestamp?: number) => {
+    const token = getAuthToken();
+    const baseUrl = `${getCustomApiHost()}/api/persona/${encodeURIComponent(personaName)}/audio`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (timestamp) params.set('t', String(timestamp));
+    return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+  },
+
+  // 支持的音频格式
+  supportedAudioFormats: ['mp3', 'ogg', 'wav', 'm4a', 'flac'],
+
+  // 获取音频格式优先级
+  getAudioFormatPriority: () => ['mp3', 'ogg', 'wav', 'm4a', 'flac'],
 
   // 获取人格框架配置
   getFrameworkConfig: () =>
@@ -1143,6 +1208,148 @@ export const aiKnowledgeApi = {
     params.set('limit', String(limit));
     params.set('source', source);
     return api.get<AIKnowledgeSearchResponse>(`/api/ai/knowledge/search?${params.toString()}`);
+  },
+};
+
+// ===================
+// AI Image RAG API - /api/ai/images
+// ===================
+
+export interface AIImageItem {
+  id: string;
+  plugin: string;
+  path: string;
+  tags: string[];
+  content: string;
+  source: string;
+}
+
+export interface AIImageUploadResponse {
+  filename: string;
+  path: string;
+  relative_path: string;
+}
+
+export interface AIImageListResponse {
+  list: AIImageItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  next_offset: number | null;
+  page: number;
+  page_size: number;
+}
+
+export interface AIImageSearchResponse {
+  results: AIImageItem[];
+  count: number;
+  query: string;
+}
+
+export interface AIImageCreateRequest {
+  id?: string;
+  plugin?: string;
+  path: string;
+  tags: string;
+  content?: string;
+}
+
+export interface AIImageUpdateRequest {
+  tags?: string;
+  content?: string;
+}
+
+export const aiImageApi = {
+  // 上传图片
+  uploadImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = getAuthToken();
+    const response = await fetch(`${getCustomApiHost()}/api/ai/images/upload`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (response.status === 401) {
+      setAuthToken(null);
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      throw new Error('会话已过期，请重新登录');
+    }
+
+    const data: ApiResponse<AIImageUploadResponse> = await response.json();
+    if (data.status !== 0) {
+      throw new Error(data.msg || 'Upload failed');
+    }
+    return data.data;
+  },
+
+  // 获取图片列表（分页）
+  getImageList: (params: { offset?: number; limit?: number; plugin?: string; page?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.page !== undefined) query.set('page', String(params.page));
+    if (params.offset !== undefined) query.set('offset', String(params.offset));
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.plugin) query.set('plugin', params.plugin);
+    return api.get<AIImageListResponse>(`/api/ai/images/list?${query.toString()}`);
+  },
+
+  // 创建图片实体（入库）
+  createImage: async (data: AIImageCreateRequest) => {
+    const formData = new URLSearchParams();
+    if (data.id) formData.set('id', data.id);
+    if (data.plugin) formData.set('plugin', data.plugin);
+    formData.set('path', data.path);
+    formData.set('tags', data.tags);
+    if (data.content) formData.set('content', data.content);
+    
+    const token = getAuthToken();
+    const response = await fetch(`${getCustomApiHost()}/api/ai/images`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: formData.toString(),
+      credentials: 'include',
+    });
+
+    if (response.status === 401) {
+      setAuthToken(null);
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+      throw new Error('会话已过期，请重新登录');
+    }
+
+    const result: ApiResponse<{ id: string; path: string; tags: string[] }> = await response.json();
+    if (result.status !== 0) {
+      throw new Error(result.msg || 'Failed to create image knowledge');
+    }
+    return result.data;
+  },
+
+  // 删除图片
+  deleteImage: (entityId: string) =>
+    api.delete<{ id: string }>(`/api/ai/images/${encodeURIComponent(entityId)}`),
+
+  // 搜索图片
+  searchImages: (query: string, limit: number = 10, plugin?: string) => {
+    const params = new URLSearchParams();
+    params.set('query', query);
+    params.set('limit', String(limit));
+    if (plugin) params.set('plugin', plugin);
+    return api.get<AIImageSearchResponse>(`/api/ai/images/search?${params.toString()}`);
+  },
+
+  // 获取最佳匹配图片路径
+  getBestImagePath: (query: string, plugin?: string) => {
+    const params = new URLSearchParams();
+    params.set('query', query);
+    if (plugin) params.set('plugin', plugin);
+    return api.get<{ path: string }>(`/api/ai/images/path?${params.toString()}`);
   },
 };
 

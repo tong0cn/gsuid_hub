@@ -1204,3 +1204,134 @@ onClick={() => handleViewDetail(item)}
 - 使用 `<Separator />` 或 `border-b` 分隔不同分组
 - 每个分组有清晰的 Label 说明
 - 保持一致的间距（通常 `space-y-4` 或 `gap-4`）
+
+---
+
+## 7. 配置页面变更检测规范
+
+### 7.1 问题背景
+
+在【框架配置】页面中，配置项分为两类：
+1. **预期配置项** - 前端预定义的已知配置项
+2. **预料之外配置项** - 由插件或后端动态新增的配置项（显示在"其他设置"卡片中）
+
+### 7.2 数据存储结构
+
+配置组件使用双重存储结构：
+
+```typescript
+interface LocalConfig {
+  id: string;
+  name: string;
+  full_name: string;
+  config: KnownConfig;           // 预定义的预期配置项
+  rawConfig?: Record<string, PluginConfigItem>; // 完整的后端原始配置
+}
+```
+
+### 7.3 变更检测实现规范
+
+**必须同时跟踪两个状态的原始值：**
+
+```typescript
+const [originalConfig, setOriginalConfig] = useState<Record<string, any>>({});
+const [originalRawConfig, setOriginalRawConfig] = useState<Record<string, PluginConfigItem> | undefined>(undefined);
+```
+
+**isConfigDirty 必须同时检查两部分：**
+
+```typescript
+const isConfigDirty = useMemo(() => {
+  if (!config) return false;
+  const configChanged = JSON.stringify(config.config) !== JSON.stringify(originalConfig);
+  // 关键：同时检查预料之外的配置项（rawConfig）是否有变化
+  const rawConfigChanged = config.rawConfig && originalRawConfig ?
+    JSON.stringify(config.rawConfig) !== JSON.stringify(originalRawConfig) : false;
+  return configChanged || rawConfigChanged;
+}, [config, originalConfig, originalRawConfig]);
+```
+
+**保存成功后必须同步更新两个原始状态：**
+
+```typescript
+const handleSaveConfig = async () => {
+  // ... 保存逻辑 ...
+  await frameworkConfigApi.updateFrameworkConfig(config.full_name, configToSave);
+  setOriginalConfig(JSON.parse(JSON.stringify(config.config)));
+  setOriginalRawConfig(JSON.parse(JSON.stringify(config.rawConfig))); // 关键！
+  setDirty(false);
+};
+```
+
+**初始化时保存两个原始状态：**
+
+```typescript
+useEffect(() => {
+  if (config) {
+    setOriginalConfig(JSON.parse(JSON.stringify(config.config)));
+    setOriginalRawConfig(JSON.parse(JSON.stringify(config.rawConfig))); // 关键！
+    setDirty(false);
+  }
+}, [config?.id, setDirty]);
+
+// 获取配置详情时
+const fetchConfigDetail = async (configName: string) => {
+  const data = await frameworkConfigApi.getFrameworkConfig(configName);
+  // ... 转换配置 ...
+  setConfigs([convertedConfig]);
+  setOriginalConfig(JSON.parse(JSON.stringify(convertedConfig.config)));
+  setOriginalRawConfig(JSON.parse(JSON.stringify(data.config))); // 关键！
+};
+```
+
+### 7.4 常见错误
+
+❌ **错误：只比较 config 部分**
+```typescript
+const isConfigDirty = useMemo(() => {
+  if (!config) return false;
+  return JSON.stringify(config.config) !== JSON.stringify(originalConfig); // 漏了 rawConfig！
+}, [config, originalConfig]);
+```
+
+❌ **错误：保存后只更新 originalConfig**
+```typescript
+setOriginalConfig(JSON.parse(JSON.stringify(config.config)));
+// 漏了 setOriginalRawConfig！
+setDirty(false);
+```
+
+✅ **正确：同时跟踪和比较两个状态**
+
+### 7.5 需要遵循此规范的文件
+
+- `MiscSettings.tsx` - 杂项配置
+- `ButtonMarkdownSettings.tsx` - 按钮和MD配置
+- 任何包含 `EXPECTED_CONFIG_KEYS` 和 `rawConfig` 的配置组件
+
+---
+
+## 8. 其他规范
+
+### 8.1 图标使用
+
+- 优先使用 `lucide-react` 图标库
+- 图标大小统一：标题用 `w-5 h-5`，按钮内用 `w-4 h-4`
+- 使用 `gap-2` 或 `gap-3` 保持图标与文字间距
+
+### 8.2 颜色规范
+
+- 使用 Tailwind 的颜色变量，如 `text-primary`, `bg-primary/10`
+- 避免硬编码颜色值
+- 状态色：成功 `text-green-500`，警告 `text-amber-500`，错误 `text-red-500`
+
+### 8.3 响应式设计
+
+- 移动端优先，使用 `md:`, `lg:` 等断点
+- 表格在移动端使用卡片布局替代
+- 表单字段在移动端单列，桌面端可多列
+
+---
+
+*文档版本: 1.1*
+*最后更新: 2024年*
