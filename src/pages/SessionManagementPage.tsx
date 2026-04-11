@@ -73,7 +73,7 @@ const formatTime = (timestamp: number | null | undefined): string => {
 };
 
 const getSessionDisplayId = (session: SessionInfo): string => {
-  // 新格式: {bot_id}%%%{group_id}%%%{user_id}
+  // 新格式: bot:{bot_id}:group:{group_id} 或 bot:{bot_id}:private:{user_id}
   // 优先使用 API 返回的 group_id 和 user_id 字段
   if (session.type === 'group' && session.group_id) {
     return session.group_id;
@@ -83,14 +83,25 @@ const getSessionDisplayId = (session: SessionInfo): string => {
   }
   
   // 如果 API 没有返回 group_id/user_id，尝试从 session_id 解析
-  const parts = session.session_id.split('%%%');
-  if (parts.length === 3) {
-    const [, groupId, userId] = parts;
-    // 群聊时返回 group_id，私聊时返回 user_id
-    return session.type === 'group' ? groupId : userId;
+  // 格式: bot:{bot_id}:group:{group_id} 或 bot:{bot_id}:private:{user_id}
+  const groupMatch = session.session_id.match(/^bot:\d+:group:(.+)$/);
+  const privateMatch = session.session_id.match(/^bot:\d+:private:(.+)$/);
+  
+  if (groupMatch) {
+    return groupMatch[1];
+  }
+  if (privateMatch) {
+    return privateMatch[1];
   }
   
   return session.session_id;
+};
+
+const getBotId = (session: SessionInfo): string => {
+  // 从 session_id 解析 bot_id
+  // 格式: bot:{bot_id}:group:{group_id} 或 bot:{bot_id}:private:{user_id}
+  const match = session.session_id.match(/^bot:(\d+):/);
+  return match ? match[1] : '0';
 };
 
 const getSessionTypeLabel = (type: string, t: (key: string) => string): string => {
@@ -365,6 +376,7 @@ export default function SessionManagementPage() {
               {filteredSessions.map((session) => {
                 const isSelected = selectedSession?.session.session_id === session.session_id;
                 const displayId = getSessionDisplayId(session);
+                const botId = getBotId(session);
                 const isGroup = session.type === 'group';
                 
                 return (
@@ -392,9 +404,16 @@ export default function SessionManagementPage() {
                       
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        {/* First row: ID */}
-                        <div className="font-medium text-sm truncate" title={displayId}>
-                          {displayId}
+                        {/* First row: ID and Bot Badge */}
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-sm truncate" title={displayId}>
+                            {displayId}
+                          </div>
+                          {botId !== '0' && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0 bg-orange-500/20 text-orange-600 border-orange-500/30">
+                              Bot {botId}
+                            </Badge>
+                          )}
                         </div>
                         {/* Second row: Badge and Stats */}
                         <div className="flex items-center gap-2 mt-1">
@@ -464,9 +483,16 @@ export default function SessionManagementPage() {
                 </div>
                 
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold text-sm sm:text-base truncate">
-                    {getSessionDisplayId(selectedSession.session)}
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold text-sm sm:text-base truncate">
+                      {getSessionDisplayId(selectedSession.session)}
+                    </h2>
+                    {getBotId(selectedSession.session) !== '0' && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0 bg-orange-500/20 text-orange-600 border-orange-500/30">
+                        Bot {getBotId(selectedSession.session)}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {selectedSession.session.type === 'group'
                       ? t('sessionManagement.groupChat')
