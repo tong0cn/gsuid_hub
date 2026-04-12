@@ -541,6 +541,8 @@
     "timeout": "Timeout",
     "rateLimit": "Rate Limit",
     "networkError": "Network Error",
+    "usageLimit": "Usage Limit",
+    "agentError": "Agent Error",
     "personaLeaderboard": "Persona Leaderboard",
     "persona": "Persona",
     "mention": "Mention",

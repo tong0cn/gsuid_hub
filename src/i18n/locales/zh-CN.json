@@ -539,6 +539,8 @@
     "timeout": "超时",
     "rateLimit": "限流",
     "networkError": "网络错误",
+    "usageLimit": "用量限制",
+    "agentError": "Agent 错误",
     "personaLeaderboard": "Persona 排行榜",
     "persona": "人格",
     "mention": "提及",
