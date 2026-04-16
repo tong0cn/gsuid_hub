@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -133,6 +133,7 @@ export default function LogsPage() {
       const statsData = await logsApi.getStats({
         date: dateStr,
         level: levelFilter === 'all' ? undefined : levelFilter,
+        search: searchTerm || undefined,
         per_page: perPage,
       });
       setTotalCount(statsData.total);
@@ -146,6 +147,7 @@ export default function LogsPage() {
       const data = await logsApi.getLogs({
         date: dateStr,
         level: levelFilter === 'all' ? undefined : levelFilter,
+        search: searchTerm || undefined,
         page: currentPage,
         per_page: perPage,
       });
@@ -167,7 +169,7 @@ export default function LogsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, levelFilter, currentPage, perPage, t]);
+  }, [selectedDate, levelFilter, currentPage, perPage, searchTerm, t]);
   
   // 增量获取新日志 - 只获取比lastLogId更新的日志
   const fetchIncrementalLogs = useCallback(async () => {
@@ -235,18 +237,18 @@ export default function LogsPage() {
     fetchAvailableDates();
   }, []);
 
-  const filteredLogs = useMemo(() => {
-    if (!searchTerm) return logs;
-    const lowerSearch = searchTerm.toLowerCase();
-    return logs.filter((log) =>
-      log.message.toLowerCase().includes(lowerSearch) ||
-      log.source.toLowerCase().includes(lowerSearch)
-    );
-  }, [logs, searchTerm]);
+  // 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1); // 搜索时重置到第一页
+      fetchLogs();
+    }, 300); // 300ms防抖
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // 虚拟滚动器 - 使用原生滚动容器
   const rowVirtualizer = useVirtualizer({
-    count: filteredLogs.length,
+    count: logs.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 80, // 优化估计高度
     overscan: 3, // 减少预渲染数量，降低内存占用
@@ -262,7 +264,7 @@ export default function LogsPage() {
   };
 
   const handleExport = () => {
-    const logText = filteredLogs
+    const logText = logs
       .map((log) => `[${log.timestamp}] [${log.level.toUpperCase()}] [${log.source}] ${log.message}`)
       .join('\n');
     
@@ -274,7 +276,7 @@ export default function LogsPage() {
     a.click();
     URL.revokeObjectURL(url);
     
-    toast({ title: t('common.success'), description: `Exported ${filteredLogs.length} logs` });
+    toast({ title: t('common.success'), description: `Exported ${logs.length} logs` });
   };
 
   const toggleExpand = (id: number) => {
@@ -455,7 +457,7 @@ export default function LogsPage() {
       {/* Log List with Virtual Scrolling */}
       <Card className="glass-card flex-1 min-h-0 flex flex-col">
         <CardHeader className="shrink-0">
-          <CardTitle>日志列表 ({filteredLogs.length})</CardTitle>
+          <CardTitle>日志列表 ({logs.length})</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 p-0">
           {/* 虚拟滚动容器 - 使用原生overflow-auto */}
@@ -467,7 +469,7 @@ export default function LogsPage() {
               willChange: 'scroll-position', // 提示浏览器优化滚动
             }}
           >
-            {filteredLogs.length === 0 ? (
+            {logs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 {t('logs.noMatchingLogs')}
               </div>
@@ -480,7 +482,7 @@ export default function LogsPage() {
                 }}
               >
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const log = filteredLogs[virtualRow.index];
+                  const log = logs[virtualRow.index];
                   return (
                     <div
                       key={log.id}

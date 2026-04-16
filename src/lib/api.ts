@@ -592,15 +592,21 @@ export const pluginStoreApi = {
 export const logsApi = {
   getLogs: (params: {
     date?: string;
+    start_date?: string;
+    end_date?: string;
     level?: string;
     source?: string;
+    search?: string;
     page?: number;
     per_page?: number;
   } = {}) => {
     const query = new URLSearchParams();
     if (params.date) query.set('date', params.date);
+    if (params.start_date) query.set('start_date', params.start_date);
+    if (params.end_date) query.set('end_date', params.end_date);
     if (params.level) query.set('level', params.level);
     if (params.source) query.set('source', params.source);
+    if (params.search) query.set('search', params.search);
     if (params.page) query.set('page', String(params.page));
     if (params.per_page) query.set('per_page', String(params.per_page));
 
@@ -612,14 +618,20 @@ export const logsApi = {
 
   getStats: (params: {
     date?: string;
+    start_date?: string;
+    end_date?: string;
     level?: string;
     source?: string;
+    search?: string;
     per_page?: number;
   } = {}) => {
     const query = new URLSearchParams();
     if (params.date) query.set('date', params.date);
+    if (params.start_date) query.set('start_date', params.start_date);
+    if (params.end_date) query.set('end_date', params.end_date);
     if (params.level) query.set('level', params.level);
     if (params.source) query.set('source', params.source);
+    if (params.search) query.set('search', params.search);
     if (params.per_page) query.set('per_page', String(params.per_page));
 
     return api.get<{

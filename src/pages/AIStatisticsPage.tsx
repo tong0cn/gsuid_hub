@@ -67,7 +67,7 @@ interface IntentDistribution {
 }
 
 interface TriggerDistribution {
-  [key: string]: { count: number; percentage: number };
+  [key: string]: { count: number; percentage: number } | number;
 }
 
 interface ErrorStats {
@@ -269,8 +269,8 @@ export default function AIStatisticsPage() {
   const triggerChartData = summary
     ? Object.entries(summary.trigger_distribution ?? {}).map(([name, data]) => ({
         name,
-        value: data?.count ?? 0,
-        percentage: data?.percentage ?? 0,
+        value: typeof data === 'number' ? data : (data?.count ?? 0),
+        percentage: typeof data === 'number' ? 0 : (data?.percentage ?? 0),
       }))
     : [];
 
