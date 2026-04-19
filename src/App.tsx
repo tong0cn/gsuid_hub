@@ -28,6 +28,7 @@ import PersonaConfigPage from "@/pages/PersonaConfigPage";
 import AIToolsPage from "@/pages/AIToolsPage";
 import AISkillsPage from "@/pages/AISkillsPage";
 import AIStatisticsPage from "@/pages/AIStatisticsPage";
+import AIMemoryPage from "@/pages/AIMemoryPage";
 import AIScheduledTasksPage from "@/pages/AIScheduledTasksPage";
 import AIKnowledgePage from "@/pages/AIKnowledgePage";
 import SystemPromptPage from "@/pages/SystemPromptPage";
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="ai-statistics" element={<AIStatisticsPage />} />
         <Route path="ai-scheduled-tasks" element={<AIScheduledTasksPage />} />
         <Route path="ai-knowledge" element={<AIKnowledgePage />} />
+        <Route path="ai-memory" element={<AIMemoryPage />} />
         <Route path="system-prompt" element={<SystemPromptPage />} />
         <Route path="session-management" element={<SessionManagementPage />} />
         <Route path="core-config" element={<CoreConfigPage />} />

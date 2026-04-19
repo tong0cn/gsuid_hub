@@ -89,6 +89,7 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
       { title: t('sidebar.aiStatistics'), url: '/ai-statistics', icon: TrendingUp },
       { title: t('sidebar.aiScheduledTasks'), url: '/ai-scheduled-tasks', icon: Clock },
       { title: t('sidebar.aiKnowledge'), url: '/ai-knowledge', icon: BookOpen },
+      { title: t('sidebar.aiMemory'), url: '/ai-memory', icon: Brain },
       { title: t('sidebar.systemPrompt'), url: '/system-prompt', icon: MessageSquare },
       { title: t('sidebar.sessionManagement'), url: '/session-management', icon: History }
     ]

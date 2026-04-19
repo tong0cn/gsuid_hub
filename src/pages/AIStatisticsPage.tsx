@@ -45,16 +45,20 @@ import { format } from 'date-fns';
 interface TokenUsage {
   total_input_tokens: number;
   total_output_tokens: number;
-  total_cost_usd: number;
-  total_cost_cny: number;
   by_model: TokenByModel[];
+  by_type: TokenByType[];
 }
 
 interface TokenByModel {
   model: string;
   input_tokens: number;
   output_tokens: number;
-  cost_usd: number;
+}
+
+interface TokenByType {
+  type: string;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 interface Latency {
@@ -76,6 +80,7 @@ interface ErrorStats {
   network_error: number;
   usage_limit: number;
   agent_error: number;
+  api_529_error: number;
   total: number;
 }
 
@@ -96,9 +101,14 @@ interface RagDocument {
   hit_count: number;
 }
 
-interface SessionMemory {
-  active_session_count: number;
-  avg_messages_per_session: number;
+interface MemoryStats {
+  observations: number;
+  ingestions: number;
+  ingestion_errors: number;
+  retrievals: number;
+  entities_created: number;
+  edges_created: number;
+  episodes_created: number;
 }
 
 interface PersonaLeaderboard {
@@ -124,7 +134,7 @@ interface StatisticsSummary {
   heartbeat: HeartbeatStats;
   trigger_distribution: TriggerDistribution;
   rag: RagStats;
-  session_memory: SessionMemory;
+  memory: MemoryStats;
   persona_leaderboard: PersonaLeaderboard[];
   active_users: ActiveUser[];
 }
@@ -220,6 +230,7 @@ export default function AIStatisticsPage() {
   // 状态
   const [summary, setSummary] = useState<StatisticsSummary | null>(null);
   const [tokenByModel, setTokenByModel] = useState<TokenByModel[]>([]);
+  const [tokenByType, setTokenByType] = useState<TokenByType[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [ragDocuments, setRagDocuments] = useState<RagDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,6 +254,7 @@ export default function AIStatisticsPage() {
 
       setSummary(summaryData);
       setTokenByModel(tokenData);
+      setTokenByType(summaryData?.token_usage?.by_type ?? []);
       setActiveUsers(usersData);
       setRagDocuments(ragData);
     } catch (err) {
@@ -278,7 +290,12 @@ export default function AIStatisticsPage() {
     name: item.model ?? 'Unknown',
     input: item.input_tokens ?? 0,
     output: item.output_tokens ?? 0,
-    cost: item.cost_usd ?? 0,
+  }));
+
+  const tokenTypeChartData = tokenByType.map((item) => ({
+    name: item.type ?? 'Unknown',
+    input: item.input_tokens ?? 0,
+    output: item.output_tokens ?? 0,
   }));
 
   return (
@@ -562,37 +579,94 @@ export default function AIStatisticsPage() {
                   </CardContent>
                 </Card>
 
-                {/* 模型费用详情 */}
+                {/* Token by Type 图表 */}
                 <Card className={cn(isGlass ? 'glass-card' : 'border border-border/50')}>
                   <CardHeader>
-                    <CardTitle>{t('aiStatistics.modelCostDetail')}</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <Coins className="w-5 h-5" />
+                      {t('aiStatistics.tokenByType')}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border/50">
-                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.model')}</th>
-                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.inputTokens')}</th>
-                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.outputTokens')}</th>
-                            <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.costUSD')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tokenByModel.map((item, i) => (
-                            <tr key={i} className="border-b border-border/30">
-                              <td className="py-2 px-3">{item.model}</td>
-                              <td className="py-2 px-3">{(item.input_tokens ?? 0).toLocaleString()}</td>
-                              <td className="py-2 px-3">{(item.output_tokens ?? 0).toLocaleString()}</td>
-                              <td className="py-2 px-3">${(item.cost_usd ?? 0).toFixed(4)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="h-[300px]">
+                      {tokenTypeChartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={tokenTypeChartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="input" name={t('aiStatistics.inputTokens')} fill={CHART_COLORS[2]} />
+                            <Bar dataKey="output" name={t('aiStatistics.outputTokens')} fill={CHART_COLORS[3]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          {t('common.noData')}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* 模型 Token 详情 */}
+              <Card className={cn(isGlass ? 'glass-card' : 'border border-border/50')}>
+                <CardHeader>
+                  <CardTitle>{t('aiStatistics.tokenByModel')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50">
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.model')}</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.inputTokens')}</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.outputTokens')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tokenByModel.map((item, i) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-2 px-3">{item.model ?? '-'}</td>
+                            <td className="py-2 px-3">{(item.input_tokens ?? 0).toLocaleString()}</td>
+                            <td className="py-2 px-3">{(item.output_tokens ?? 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Token by Type 详情 */}
+              <Card className={cn(isGlass ? 'glass-card' : 'border border-border/50')}>
+                <CardHeader>
+                  <CardTitle>{t('aiStatistics.tokenByType')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50">
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.type')}</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.inputTokens')}</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">{t('aiStatistics.outputTokens')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tokenByType.map((item, i) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-2 px-3">{item.type ?? '-'}</td>
+                            <td className="py-2 px-3">{(item.input_tokens ?? 0).toLocaleString()}</td>
+                            <td className="py-2 px-3">{(item.output_tokens ?? 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -600,23 +674,39 @@ export default function AIStatisticsPage() {
           {activeTab === 'performance' && (
             <div className="space-y-4 px-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Session 内存 */}
+                {/* Memory 统计 */}
                 <Card className={cn(isGlass ? 'glass-card' : 'border border-border/50')}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Database className="w-5 h-5" />
-                      {t('aiStatistics.sessionMemory')}
+                      {t('aiStatistics.memory')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 rounded-lg bg-primary/10">
-                        <p className="text-2xl font-bold">{summary.session_memory?.active_session_count ?? 0}</p>
-                        <p className="text-sm text-muted-foreground">{t('aiStatistics.activeSessions')}</p>
+                        <p className="text-2xl font-bold">{summary.memory?.observations ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.observations')}</p>
                       </div>
                       <div className="p-4 rounded-lg bg-primary/10">
-                        <p className="text-2xl font-bold">{(summary.session_memory?.avg_messages_per_session ?? 0).toFixed(1)}</p>
-                        <p className="text-sm text-muted-foreground">{t('aiStatistics.avgMessagesPerSession')}</p>
+                        <p className="text-2xl font-bold">{summary.memory?.ingestions ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.ingestions')}</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-primary/10">
+                        <p className="text-2xl font-bold">{summary.memory?.retrievals ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.retrievals')}</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-primary/10">
+                        <p className="text-2xl font-bold">{summary.memory?.entities_created ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.entitiesCreated')}</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-primary/10">
+                        <p className="text-2xl font-bold">{summary.memory?.edges_created ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.edgesCreated')}</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-primary/10">
+                        <p className="text-2xl font-bold">{summary.memory?.episodes_created ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{t('aiStatistics.episodesCreated')}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -637,6 +727,7 @@ export default function AIStatisticsPage() {
                       <ProgressItem label={t('aiStatistics.networkError')} value={summary.errors?.network_error ?? 0} percentage={((summary.errors?.network_error ?? 0) / (summary.errors?.total ?? 1)) * 100 || 0} />
                       <ProgressItem label={t('aiStatistics.usageLimit')} value={summary.errors?.usage_limit ?? 0} percentage={((summary.errors?.usage_limit ?? 0) / (summary.errors?.total ?? 1)) * 100 || 0} />
                       <ProgressItem label={t('aiStatistics.agentError')} value={summary.errors?.agent_error ?? 0} percentage={((summary.errors?.agent_error ?? 0) / (summary.errors?.total ?? 1)) * 100 || 0} />
+                      <ProgressItem label={t('aiStatistics.api529Error')} value={summary.errors?.api_529_error ?? 0} percentage={((summary.errors?.api_529_error ?? 0) / (summary.errors?.total ?? 1)) * 100 || 0} />
                     </div>
                   </CardContent>
                 </Card>
