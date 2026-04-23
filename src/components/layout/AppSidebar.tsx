@@ -291,7 +291,7 @@ export function AppSidebar() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-1">
                   <span className="font-bold text-lg">{t('sidebar.gsCore')}</span>
-                  <Badge variant="default" className="text-xs font-medium">v{import.meta.env.PACKAGE_VERSION || '0.0.6'}</Badge>
+                  <Badge variant="default" className="text-xs font-medium">v{import.meta.env.PACKAGE_VERSION || '0.0.7'}</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground">​{t('sidebar.早柚核心')}</span>
               </div>

@@ -264,6 +264,139 @@ function truncateText(text: string, maxLength: number): string {
 // Knowledge Graph Visualization (Canvas-based)
 // ============================================================================
 
+// --- Large Graph Optimizations ---
+// Removed aggressive node/edge sampling; rely on Barnes-Hut + viewport culling + LOD
+const MAX_RENDER_EDGES_HARD_LIMIT = 20000;
+
+interface Viewport {
+  left: number; top: number; right: number; bottom: number;
+}
+
+function getViewport(rect: DOMRect, zoom: number, offset: {x:number;y:number}): Viewport {
+  const invZoom = 1 / zoom;
+  return {
+    left: -offset.x * invZoom - 60,
+    top: -offset.y * invZoom - 60,
+    right: (-offset.x + rect.width) * invZoom + 60,
+    bottom: (-offset.y + rect.height) * invZoom + 60,
+  };
+}
+
+function isNodeInViewport(node: GraphNode, vp: Viewport, radius = 30): boolean {
+  return node.x + radius >= vp.left && node.x - radius <= vp.right &&
+         node.y + radius >= vp.top && node.y - radius <= vp.bottom;
+}
+
+// Barnes-Hut Quadtree for O(n log n) repulsion
+class QuadTree {
+  x: number; y: number; w: number; h: number;
+  children: QuadTree[] | null = null;
+  point: GraphNode | null = null;
+  mass = 0; cx = 0; cy = 0;
+
+  constructor(x: number, y: number, w: number, h: number) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+  }
+
+  insert(node: GraphNode) {
+    if (node.x < this.x || node.x > this.x + this.w || node.y < this.y || node.y > this.y + this.h) return;
+    if (!this.children && !this.point && this.mass === 0) {
+      this.point = node;
+      this.mass = 1;
+      this.cx = node.x;
+      this.cy = node.y;
+      return;
+    }
+    if (!this.children) {
+      this.subdivide();
+      if (this.point) {
+        this.insertIntoChild(this.point);
+        this.point = null;
+      }
+    }
+    this.insertIntoChild(node);
+    this.mass += 1;
+    this.cx = (this.cx * (this.mass - 1) + node.x) / this.mass;
+    this.cy = (this.cy * (this.mass - 1) + node.y) / this.mass;
+  }
+
+  private subdivide() {
+    const hw = this.w / 2, hh = this.h / 2;
+    this.children = [
+      new QuadTree(this.x, this.y, hw, hh),
+      new QuadTree(this.x + hw, this.y, hw, hh),
+      new QuadTree(this.x, this.y + hh, hw, hh),
+      new QuadTree(this.x + hw, this.y + hh, hw, hh),
+    ];
+  }
+
+  private insertIntoChild(node: GraphNode) {
+    for (const child of this.children!) {
+      if (node.x >= child.x && node.x <= child.x + child.w && node.y >= child.y && node.y <= child.y + child.h) {
+        child.insert(node);
+        return;
+      }
+    }
+    let closest = this.children[0];
+    let closestDist = Infinity;
+    for (const child of this.children) {
+      const cx = child.x + child.w / 2;
+      const cy = child.y + child.h / 2;
+      const d = (node.x - cx) ** 2 + (node.y - cy) ** 2;
+      if (d < closestDist) {
+        closestDist = d;
+        closest = child;
+      }
+    }
+    closest.insert(node);
+  }
+
+  applyForce(node: GraphNode, alpha: number, repulsion: number, theta = 0.5) {
+    if (this.mass === 0) return;
+    // Guard against self-interaction at leaf level
+    if (this.point === node) return;
+
+    const dx = this.cx - node.x;
+    const dy = this.cy - node.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq === 0) return;
+    const dist = Math.sqrt(distSq);
+    const s = this.w;
+
+    // Use epsilon to avoid floating-point boundary issues
+    const eps = 1e-9;
+    const containsNode = node.x >= this.x - eps && node.x <= this.x + this.w + eps &&
+                         node.y >= this.y - eps && node.y <= this.y + this.h + eps;
+
+    // Clamp distance to avoid huge forces at close range
+    const clampedDist = Math.max(dist, 1.0);
+
+    if (!containsNode && (s / clampedDist) < theta) {
+      const force = (repulsion * this.mass) / (clampedDist * clampedDist);
+      const fx = (dx / clampedDist) * force * alpha;
+      const fy = (dy / clampedDist) * force * alpha;
+      node.vx -= fx;
+      node.vy -= fy;
+    } else if (this.children) {
+      for (const child of this.children) {
+        child.applyForce(node, alpha, repulsion, theta);
+      }
+    } else if (this.point && this.point !== node) {
+      const pdx = this.point.x - node.x;
+      const pdy = this.point.y - node.y;
+      const pdistSq = pdx * pdx + pdy * pdy;
+      if (pdistSq === 0) return;
+      const pdist = Math.sqrt(pdistSq);
+      const pclampedDist = Math.max(pdist, 1.0);
+      const pforce = repulsion / (pclampedDist * pclampedDist);
+      const pfx = (pdx / pclampedDist) * pforce * alpha;
+      const pfy = (pdy / pclampedDist) * pforce * alpha;
+      node.vx -= pfx;
+      node.vy -= pfy;
+    }
+  }
+}
+
 interface GraphNode {
   id: string;
   label: string;
@@ -304,6 +437,8 @@ function KnowledgeGraph({
   const offsetRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const lastPinchDistRef = useRef(0);
+  const lastPinchCenterRef = useRef({ x: 0, y: 0 });
   const hoveredNodeRef = useRef<string | null>(null);
   const nodesRef = useRef<GraphNode[]>([]);
   const animFrameRef = useRef<number>(0);
@@ -314,16 +449,16 @@ function KnowledgeGraph({
   const [, forceUpdate] = useState(0);
 
   // Build graph data from props
-  const graphNodes = useMemo(() => {
-    const nodes: GraphNode[] = [];
+  const graphData = useMemo(() => {
     const cx = 400;
     const cy = 300;
     const existingIds = new Set<string>();
+    const nodes: GraphNode[] = [];
 
     entities.forEach((entity, i) => {
       existingIds.add(entity.id);
       const angle = (2 * Math.PI * i) / Math.max(entities.length, 1);
-      const radius = 150 + Math.random() * 100;
+      const radius = 200 + Math.random() * 200;
       nodes.push({
         id: entity.id,
         label: entity.name,
@@ -336,24 +471,8 @@ function KnowledgeGraph({
       });
     });
 
-    categories.forEach((cat, i) => {
-      existingIds.add(cat.id);
-      const angle = (2 * Math.PI * i) / Math.max(categories.length, 1) + Math.PI / 4;
-      const radius = 250 + Math.random() * 80;
-      nodes.push({
-        id: cat.id,
-        label: cat.name,
-        type: 'category',
-        x: cx + radius * Math.cos(angle),
-        y: cy + radius * Math.sin(angle),
-        vx: 0,
-        vy: 0,
-        layer: cat.layer,
-      });
-    });
 
     // Add placeholder nodes for edge endpoints not in the entity/category lists
-    // This fixes the "all scopes" bug where paginated entities miss some edge endpoints
     const missingIds = new Set<string>();
     for (const edge of edges) {
       if (!existingIds.has(edge.source_entity_id)) missingIds.add(edge.source_entity_id);
@@ -377,64 +496,61 @@ function KnowledgeGraph({
       missingIdx++;
     }
 
-    return nodes;
-  }, [entities, categories, edges]);
-
-  const graphEdges = useMemo(() => {
-    return edges.map((edge) => ({
+    let graphEdges = edges.map((edge) => ({
       source: edge.source_entity_id,
       target: edge.target_entity_id,
       label: truncateText(edge.fact, 30),
       invalid: !!edge.invalid_at,
     }));
-  }, [edges]);
+
+    if (graphEdges.length > MAX_RENDER_EDGES_HARD_LIMIT) {
+      graphEdges = graphEdges.slice(0, MAX_RENDER_EDGES_HARD_LIMIT);
+    }
+
+    return { nodes, edges: graphEdges };
+  }, [entities, edges]);
 
   // Build node index for O(1) lookup
   const nodeIndexRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     const idx = new Map<string, number>();
-    graphNodes.forEach((n, i) => idx.set(n.id, i));
+    graphData.nodes.forEach((n, i) => idx.set(n.id, i));
     nodeIndexRef.current = idx;
-  }, [graphNodes]);
+  }, [graphData]);
 
-  // Force simulation with convergence detection
+  // Force simulation with Barnes-Hut and convergence detection
   useEffect(() => {
-    nodesRef.current = graphNodes.map((n) => ({ ...n }));
+    nodesRef.current = graphData.nodes.map((n) => ({ ...n }));
     alphaRef.current = 1.0;
     let running = true;
+    let stableFrames = 0;
 
     const simulate = () => {
       if (!running) return;
       const nodes = nodesRef.current;
-      if (nodes.length === 0) {
-        animFrameRef.current = requestAnimationFrame(simulate);
-        return;
-      }
+      if (nodes.length === 0) return;
 
       const alpha = alphaRef.current;
 
-      // Only run physics when alpha is above threshold
       if (alpha > 0.001) {
-        // Repulsion between all nodes (O(n²))
-        for (let i = 0; i < nodes.length; i++) {
-          for (let j = i + 1; j < nodes.length; j++) {
-            const dx = nodes[j].x - nodes[i].x;
-            const dy = nodes[j].y - nodes[i].y;
-            const distSq = dx * dx + dy * dy;
-            const dist = Math.sqrt(distSq) || 1;
-            const force = 8000 / (distSq || 1);
-            const fx = (dx / dist) * force * alpha;
-            const fy = (dy / dist) * force * alpha;
-            nodes[i].vx -= fx;
-            nodes[i].vy -= fy;
-            nodes[j].vx += fx;
-            nodes[j].vy += fy;
-          }
+        // Barnes-Hut approximation for O(n log n) repulsion
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const node of nodes) {
+          if (node.x < minX) minX = node.x;
+          if (node.y < minY) minY = node.y;
+          if (node.x > maxX) maxX = node.x;
+          if (node.y > maxY) maxY = node.y;
         }
+        const size = Math.max(maxX - minX, maxY - minY, 100);
+        const tree = new QuadTree(minX - 1, minY - 1, size + 2, size + 2);
+        for (const node of nodes) tree.insert(node);
+        // Scale repulsion for large graphs to prevent overlap
+        const repulsion = Math.min(15000, 400000 / Math.max(1, nodes.length));
+        for (const node of nodes) tree.applyForce(node, alpha, repulsion);
 
-        // Attraction along edges (O(E) with index lookup)
+        // Attraction along edges
         const idx = nodeIndexRef.current;
-        for (const edge of graphEdges) {
+        for (const edge of graphData.edges) {
           const si = idx.get(edge.source);
           const ti = idx.get(edge.target);
           if (si === undefined || ti === undefined) continue;
@@ -443,7 +559,8 @@ function KnowledgeGraph({
           const dx = target.x - source.x;
           const dy = target.y - source.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = (dist - 120) * 0.01 * alpha;
+          const idealDist = nodes.length > 2000 ? 60 : 160;
+          const force = (dist - idealDist) * 0.015 * alpha;
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
           source.vx += fx;
@@ -452,26 +569,47 @@ function KnowledgeGraph({
           target.vy -= fy;
         }
 
-        // Center gravity
+        // Center gravity - weaker to allow more spread
+        const gravityStrength = nodes.length > 2000 ? 0.008 : 0.002;
         for (const node of nodes) {
-          node.vx += (400 - node.x) * 0.001 * alpha;
-          node.vy += (300 - node.y) * 0.001 * alpha;
+          node.vx += (400 - node.x) * gravityStrength * alpha;
+          node.vy += (300 - node.y) * gravityStrength * alpha;
         }
 
-        // Apply velocity with damping
+        // Apply velocity with damping, clamping and boundary limits
+        let totalMovement = 0;
+        const maxVelocity = 8;
+        const bound = 6000;
         for (const node of nodes) {
-          node.vx *= 0.6;
-          node.vy *= 0.6;
+          node.vx *= 0.4;
+          node.vy *= 0.4;
+          // Clamp velocity to prevent runaway nodes
+          const v = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+          if (v > maxVelocity) {
+            node.vx = (node.vx / v) * maxVelocity;
+            node.vy = (node.vy / v) * maxVelocity;
+          }
           node.x += node.vx;
           node.y += node.vy;
+          // Hard boundary to keep nodes in reasonable range
+          node.x = Math.max(-bound, Math.min(bound, node.x));
+          node.y = Math.max(-bound, Math.min(bound, node.y));
+          totalMovement += Math.abs(node.vx) + Math.abs(node.vy);
         }
 
-        // Decay alpha
         alphaRef.current *= 0.995;
-        needsRedrawRef.current = true;
-      }
 
-      animFrameRef.current = requestAnimationFrame(simulate);
+        // Early stop if barely moving
+        if (totalMovement < nodes.length * 0.005) {
+          stableFrames++;
+          if (stableFrames > 60) alphaRef.current = 0;
+        } else {
+          stableFrames = 0;
+        }
+
+        needsRedrawRef.current = true;
+        animFrameRef.current = requestAnimationFrame(simulate);
+      }
     };
 
     simulate();
@@ -479,20 +617,7 @@ function KnowledgeGraph({
       running = false;
       cancelAnimationFrame(animFrameRef.current);
     };
-  }, [graphNodes, graphEdges]);
-
-  // Separate draw loop - only redraws when needed
-  useEffect(() => {
-    const drawLoop = () => {
-      if (needsRedrawRef.current) {
-        needsRedrawRef.current = false;
-        drawGraph();
-      }
-      drawFrameRef.current = requestAnimationFrame(drawLoop);
-    };
-    drawFrameRef.current = requestAnimationFrame(drawLoop);
-    return () => cancelAnimationFrame(drawFrameRef.current);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [graphData]);
 
   // Theme-aware color palette
   const colors = useMemo(() => {
@@ -553,16 +678,16 @@ function KnowledgeGraph({
   // Build adjacency map for hover highlighting
   const adjacencyMap = useMemo(() => {
     const adj = new Map<string, Set<string>>();
-    for (const edge of graphEdges) {
+    for (const edge of graphData.edges) {
       if (!adj.has(edge.source)) adj.set(edge.source, new Set());
       if (!adj.has(edge.target)) adj.set(edge.target, new Set());
       adj.get(edge.source)!.add(edge.target);
       adj.get(edge.target)!.add(edge.source);
     }
     return adj;
-  }, [graphEdges]);
+  }, [graphData]);
 
-  // The actual draw function
+  // The actual draw function with viewport culling and LOD
   const drawGraph = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -585,6 +710,10 @@ function KnowledgeGraph({
     const nodes = nodesRef.current;
     const hoveredNode = hoveredNodeRef.current;
     const c = colors;
+    const zoom = zoomRef.current;
+
+    // Viewport culling
+    const vp = getViewport(rect, zoom, offsetRef.current);
 
     // Compute highlighted node set when hovering
     let highlightedNodes: Set<string> | null = null;
@@ -596,30 +725,51 @@ function KnowledgeGraph({
       }
     }
 
-    // Helper: get dim factor for a node (0 = fully dimmed, 1 = normal/bright)
     const getNodeAlpha = (nodeId: string): number => {
       if (!highlightedNodes) return 1;
       return highlightedNodes.has(nodeId) ? 1 : 0.15;
     };
 
-    // Helper: get dim factor for an edge
     const getEdgeAlpha = (sourceId: string, targetId: string): number => {
       if (!highlightedNodes) return 1;
-      // Edge is highlighted if both endpoints are highlighted
       if (highlightedNodes.has(sourceId) && highlightedNodes.has(targetId)) return 1;
       return 0.08;
     };
 
-    // Draw edges
-    // Track label positions to avoid overlap
-    const labelPositions: { x: number; y: number; w: number; h: number }[] = [];
+    // LOD thresholds
+    const showEdgeLabels = zoom > 0.6;
+    const showNodeLabels = zoom > 0.3;
+    const minNodeRadius = zoom < 0.2 ? 2 : (zoom < 0.4 ? 4 : undefined);
 
-    for (const edge of graphEdges) {
+    // Pre-filter visible nodes
+    const visibleNodes = nodes.filter((n) => isNodeInViewport(n, vp, 40));
+    const visibleNodeSet = new Set(visibleNodes.map((n) => n.id));
+
+    // For edge culling, use a much larger margin because edges can cross the viewport
+    // even when both endpoints are outside it
+    const edgeMargin = 2000;
+    const edgeVp: Viewport = {
+      left: vp.left - edgeMargin,
+      top: vp.top - edgeMargin,
+      right: vp.right + edgeMargin,
+      bottom: vp.bottom + edgeMargin,
+    };
+
+    // Draw edges with batched styles
+    ctx.lineCap = 'round';
+    const labelPositions: { x: number; y: number; w: number; h: number }[] = [];
+    let edgeLabelCount = 0;
+    const maxEdgeLabels = 40;
+
+    for (const edge of graphData.edges) {
       const si = nodeIndexRef.current.get(edge.source);
       const ti = nodeIndexRef.current.get(edge.target);
       if (si === undefined || ti === undefined) continue;
       const source = nodes[si];
       const target = nodes[ti];
+
+      // Cull edges where both ends are far off-screen
+      if (!isNodeInViewport(source, edgeVp, 0) && !isNodeInViewport(target, edgeVp, 0)) continue;
 
       const edgeAlpha = getEdgeAlpha(edge.source, edge.target);
 
@@ -631,7 +781,6 @@ function KnowledgeGraph({
         ctx.strokeStyle = edge.invalid ? c.edgeInvalid : c.edgeNormal;
       } else {
         ctx.globalAlpha = 1;
-        // Highlighted edges: brighter color and thicker
         ctx.strokeStyle = edge.invalid ? c.edgeInvalid : (isDark ? 'rgba(148, 163, 184, 0.7)' : 'rgba(100, 116, 139, 0.7)');
       }
       ctx.lineWidth = edgeAlpha < 1 ? (edge.invalid ? 1 : 1.5) : (edge.invalid ? 1.5 : 2.5);
@@ -641,12 +790,12 @@ function KnowledgeGraph({
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
 
-      // Edge label - only show when zoomed in enough and edge is visible
-      if (zoomRef.current > 0.6 && edgeAlpha > 0.5) {
+      // Edge label with LOD and count limit
+      if (showEdgeLabels && edgeAlpha > 0.5 && edgeLabelCount < maxEdgeLabels) {
         const mx = (source.x + target.x) / 2;
         const my = (source.y + target.y) / 2;
+        if (mx < vp.left || mx > vp.right || my < vp.top || my > vp.bottom) continue;
 
-        // Measure text width for collision detection
         ctx.font = '10px system-ui';
         const textWidth = ctx.measureText(edge.label).width;
         const textHeight = 12;
@@ -654,11 +803,10 @@ function KnowledgeGraph({
         const labelW = textWidth + padding * 2;
         const labelH = textHeight + padding;
 
-        // Find a non-overlapping position
         let labelX = mx;
         let labelY = my - 8;
         let offsetStep = 0;
-        const maxSteps = 8;
+        const maxSteps = 4;
 
         while (offsetStep < maxSteps) {
           const candidateX = labelX;
@@ -692,7 +840,6 @@ function KnowledgeGraph({
           offsetStep++;
         }
 
-        // Draw label with background for readability
         if (offsetStep < maxSteps) {
           const bgX = labelX - labelW / 2;
           const bgY = labelY - labelH / 2;
@@ -704,75 +851,91 @@ function KnowledgeGraph({
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(edge.label, labelX, labelY);
+          edgeLabelCount++;
         }
       }
     }
 
-    // Draw nodes
-    for (const node of nodes) {
-      const isHovered = hoveredNode === node.id;
-      const nodeAlpha = getNodeAlpha(node.id);
-      const nodeRadius = node.type === 'category' ? 24 : (node.isSpeaker ? 20 : 16);
-
-      ctx.globalAlpha = nodeAlpha;
-
-      // Category: draw as rounded rect
-      if (node.type === 'category') {
-        const w = nodeRadius * 2.2;
-        const h = nodeRadius * 1.4;
-        const rx = 6;
-
-        // Glow on hover
-        if (isHovered) {
-          ctx.beginPath();
-          ctx.roundRect(node.x - w / 2 - 4, node.y - h / 2 - 4, w + 8, h + 8, rx + 2);
-          ctx.fillStyle = c.catGlow;
-          ctx.fill();
+    // Draw nodes in batches by type to minimize state changes
+    const drawNodeBatch = (nodeList: GraphNode[]) => {
+      for (const node of nodeList) {
+        if (!visibleNodeSet.has(node.id)) continue;
+        const isHovered = hoveredNode === node.id;
+        const nodeAlpha = getNodeAlpha(node.id);
+        let nodeRadius = node.type === 'category' ? 24 : (node.isSpeaker ? 20 : 16);
+        if (minNodeRadius !== undefined && !isHovered) {
+          nodeRadius = Math.max(minNodeRadius, nodeRadius * zoom);
         }
 
-        ctx.beginPath();
-        ctx.roundRect(node.x - w / 2, node.y - h / 2, w, h, rx);
-        ctx.fillStyle = isHovered ? c.catFillHover : c.catFill;
-        ctx.strokeStyle = isHovered ? c.catStrokeHover : c.catStroke;
-        ctx.lineWidth = isHovered ? 2.5 : 1.5;
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        // Entity: draw as circle
-        // Glow on hover
-        if (isHovered) {
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, nodeRadius + 6, 0, Math.PI * 2);
-          ctx.fillStyle = node.isSpeaker ? c.speakerGlow : c.entityGlow;
-          ctx.fill();
-        }
+        ctx.globalAlpha = nodeAlpha;
 
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
-        if (node.isSpeaker) {
-          ctx.fillStyle = isHovered ? c.speakerFillHover : c.speakerFill;
-          ctx.strokeStyle = isHovered ? c.speakerStrokeHover : c.speakerStroke;
+        if (node.type === 'category') {
+          const w = nodeRadius * 2.2;
+          const h = nodeRadius * 1.4;
+          const rx = 6;
+          if (isHovered) {
+            ctx.beginPath();
+            ctx.roundRect(node.x - w / 2 - 4, node.y - h / 2 - 4, w + 8, h + 8, rx + 2);
+            ctx.fillStyle = c.catGlow;
+            ctx.fill();
+          }
+          ctx.beginPath();
+          ctx.roundRect(node.x - w / 2, node.y - h / 2, w, h, rx);
+          ctx.fillStyle = isHovered ? c.catFillHover : c.catFill;
+          ctx.strokeStyle = isHovered ? c.catStrokeHover : c.catStroke;
+          ctx.lineWidth = isHovered ? 2.5 : 1.5;
+          ctx.fill();
+          ctx.stroke();
         } else {
-          ctx.fillStyle = isHovered ? c.entityFillHover : c.entityFill;
-          ctx.strokeStyle = isHovered ? c.entityStrokeHover : c.entityStroke;
+          if (isHovered) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, nodeRadius + 6, 0, Math.PI * 2);
+            ctx.fillStyle = node.isSpeaker ? c.speakerGlow : c.entityGlow;
+            ctx.fill();
+          }
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
+          if (node.isSpeaker) {
+            ctx.fillStyle = isHovered ? c.speakerFillHover : c.speakerFill;
+            ctx.strokeStyle = isHovered ? c.speakerStrokeHover : c.speakerStroke;
+          } else {
+            ctx.fillStyle = isHovered ? c.entityFillHover : c.entityFill;
+            ctx.strokeStyle = isHovered ? c.entityStrokeHover : c.entityStroke;
+          }
+          ctx.lineWidth = isHovered ? 2.5 : 1.5;
+          ctx.fill();
+          ctx.stroke();
         }
-        ctx.lineWidth = isHovered ? 2.5 : 1.5;
-        ctx.fill();
-        ctx.stroke();
+
+        if (showNodeLabels || isHovered) {
+          ctx.font = `${isHovered ? 'bold ' : ''}12px system-ui`;
+          ctx.fillStyle = isHovered ? c.nodeLabelHover : c.nodeLabel;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(truncateText(node.label, 12), node.x, node.y);
+        }
+
+        ctx.globalAlpha = 1;
       }
+    };
 
-      // Label - theme-aware high contrast text
-      ctx.font = `${isHovered ? 'bold ' : ''}12px system-ui`;
-      ctx.fillStyle = isHovered ? c.nodeLabelHover : c.nodeLabel;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(truncateText(node.label, 12), node.x, node.y);
-
-      ctx.globalAlpha = 1;
-    }
+    drawNodeBatch(visibleNodes);
 
     ctx.restore();
-  }, [graphEdges, colors, isDark, adjacencyMap]);
+  }, [graphData, colors, isDark, adjacencyMap]);
+
+  // Separate draw loop - only redraws when needed
+  useEffect(() => {
+    const drawLoop = () => {
+      if (needsRedrawRef.current) {
+        needsRedrawRef.current = false;
+        drawGraph();
+      }
+      drawFrameRef.current = requestAnimationFrame(drawLoop);
+    };
+    drawFrameRef.current = requestAnimationFrame(drawLoop);
+    return () => cancelAnimationFrame(drawFrameRef.current);
+  }, [drawGraph]);
 
   // Wheel zoom handler - use useEffect with { passive: false } to avoid passive event listener error
   useEffect(() => {
@@ -836,6 +999,17 @@ function KnowledgeGraph({
     const y = (e.clientY - rect.top - offsetRef.current.y) / zoomRef.current;
 
     const nodes = nodesRef.current;
+
+    // Optimization: skip expensive hover detection for massive graphs at low zoom
+    if (nodes.length > 2000 && zoomRef.current < 0.6) {
+      if (hoveredNodeRef.current !== null) {
+        hoveredNodeRef.current = null;
+        needsRedrawRef.current = true;
+      }
+      canvas.style.cursor = 'grab';
+      return;
+    }
+
     let found = false;
     for (const node of nodes) {
       const dx = x - node.x;
@@ -887,15 +1061,50 @@ function KnowledgeGraph({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Touch event handlers for mobile drag
+  // Touch event handlers for mobile drag and pinch zoom
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     if (e.touches.length === 1) {
       isDraggingRef.current = true;
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      isDraggingRef.current = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastPinchDistRef.current = Math.sqrt(dx * dx + dy * dy);
+      lastPinchCenterRef.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
     }
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const scale = dist / Math.max(lastPinchDistRef.current, 1);
+
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+      const newZoom = Math.min(Math.max(zoomRef.current * scale, 0.1), 5);
+      const scaleChange = newZoom / zoomRef.current;
+
+      offsetRef.current = {
+        x: centerX - (centerX - offsetRef.current.x) * scaleChange,
+        y: centerY - (centerY - offsetRef.current.y) * scaleChange,
+      };
+      zoomRef.current = newZoom;
+
+      lastPinchDistRef.current = dist;
+      lastPinchCenterRef.current = { x: centerX, y: centerY };
+      needsRedrawRef.current = true;
+      forceUpdate((v) => v + 1);
+      return;
+    }
+
     if (isDraggingRef.current && e.touches.length === 1) {
       e.preventDefault();
       offsetRef.current = {
@@ -910,6 +1119,7 @@ function KnowledgeGraph({
 
   const handleTouchEnd = useCallback(() => {
     isDraggingRef.current = false;
+    lastPinchDistRef.current = 0;
   }, []);
 
   return (
@@ -964,10 +1174,6 @@ function KnowledgeGraph({
           {useLanguage().t('aiMemory.legendEntity')}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-2.5 rounded border border-violet-400/60 bg-violet-400/10" />
-          {useLanguage().t('aiMemory.legendCategory')}
-        </span>
-        <span className="flex items-center gap-1.5">
           <span className="w-5 h-0 border-t border-dashed border-red-400/60" />
           {useLanguage().t('aiMemory.legendInvalid')}
         </span>
@@ -983,14 +1189,14 @@ function KnowledgeGraph({
 function StatsCard({ title, value, icon: Icon, isGlass }: { title: string; value: number; icon: React.ElementType; isGlass: boolean }) {
   return (
     <Card className={cn(isGlass ? 'glass-card' : 'border border-border/50')}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-primary/10">
-            <Icon className="w-5 h-5 text-primary" />
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="p-2 sm:p-2.5 rounded-lg bg-primary/10 shrink-0">
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">{title}</p>
-            <p className="text-xl font-bold">{value.toLocaleString()}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{title}</p>
+            <p className="text-lg sm:text-xl font-bold truncate">{value.toLocaleString()}</p>
           </div>
         </div>
       </CardContent>
@@ -1258,9 +1464,25 @@ export default function AIMemoryPage() {
           memoryApi.getConfig().catch(() => null),
         ]);
         if (statsData) setStats(statsData);
-        if (scopesData) setScopes(scopesData);
+
+        let targetScope = 'all';
+        if (scopesData && scopesData.length > 0) {
+          setScopes(scopesData);
+          const firstValid = scopesData.find(s => !s.scope_key.includes('assistant'));
+          targetScope = firstValid ? firstValid.scope_key : 'all';
+          setSelectedScope(targetScope);
+        }
+
         if (hierData) setHierGraphStatus(hierData);
         if (configData) setConfig(configData);
+
+        // Load data for the first scope (or all if no scopes)
+        await Promise.all([
+          fetchEpisodes(1, targetScope),
+          fetchEntities(1, targetScope),
+          fetchEdges(1, targetScope),
+          fetchCategories(1, targetScope),
+        ]);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('aiMemory.loadFailed'));
       } finally {
@@ -1343,14 +1565,6 @@ export default function AIMemoryPage() {
     finally { setIsLoadingData(false); }
   };
 
-  useEffect(() => {
-    if (!isLoading) {
-      fetchEpisodes(1);
-      fetchEntities(1);
-      fetchEdges(1);
-      fetchCategories(1);
-    }
-  }, [isLoading]);
 
   const handleScopeChange = (scope: string) => {
     setSelectedScope(scope);
@@ -1477,7 +1691,7 @@ export default function AIMemoryPage() {
 
       {/* Stats - Unified color scheme */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           <StatsCard title={t('aiMemory.statsEpisodes')} value={stats.episode_count} icon={MessageSquare} isGlass={isGlass} />
           <StatsCard title={t('aiMemory.statsEntities')} value={stats.entity_count} icon={Brain} isGlass={isGlass} />
           <StatsCard title={t('aiMemory.statsEdges')} value={stats.edge_count} icon={GitBranch} isGlass={isGlass} />
@@ -1534,7 +1748,7 @@ export default function AIMemoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('aiMemory.allScopes')}</SelectItem>
-                  {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
+                  {scopes.filter(s => !s.scope_key.includes("assistant")).map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => { fetchEntities(1); fetchEdges(1); fetchCategories(1); }}>
@@ -1594,7 +1808,7 @@ export default function AIMemoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('aiMemory.allScopes')}</SelectItem>
-                  {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
+                  {scopes.filter(s => !s.scope_key.includes("assistant")).map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => fetchEpisodes(episodePage)}><RefreshCw className="w-4 h-4 mr-1" />{t('common.refresh')}</Button>
@@ -1652,7 +1866,7 @@ export default function AIMemoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('aiMemory.allScopes')}</SelectItem>
-                  {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
+                  {scopes.filter(s => !s.scope_key.includes("assistant")).map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => { setEntityFilterSpeaker(entityFilterSpeaker === undefined ? true : entityFilterSpeaker === true ? false : undefined); fetchEntities(1); }}>
@@ -1701,7 +1915,7 @@ export default function AIMemoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('aiMemory.allScopes')}</SelectItem>
-                  {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
+                  {scopes.filter(s => !s.scope_key.includes("assistant")).map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => fetchEdges(edgePage)}><RefreshCw className="w-4 h-4 mr-1" />{t('common.refresh')}</Button>
@@ -1745,7 +1959,7 @@ export default function AIMemoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('aiMemory.allScopes')}</SelectItem>
-                  {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
+                  {scopes.filter(s => !s.scope_key.includes("assistant")).map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={() => fetchCategories(categoryPage)}><RefreshCw className="w-4 h-4 mr-1" />{t('common.refresh')}</Button>
