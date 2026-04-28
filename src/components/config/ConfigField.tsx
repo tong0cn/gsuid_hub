@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { InputWithDropdown } from '@/components/ui/input-with-dropdown';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TimePicker } from '@/components/ui/time-picker';
 import {
@@ -25,7 +26,6 @@ import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { assetsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { ChevronsUpDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TagsInput } from './TagsInput';
 
@@ -215,50 +215,14 @@ export function ConfigField({
         // 如果有选项，可输入可选择组合框
         if (field.options && field.options.length > 0) {
           return (
-            <div className="relative w-full">
-              <Popover>
-                <div className="relative w-full">
-                  <Input
-                    value={value as string}
-                    onChange={(e) => onChange(fieldKey, e.target.value)}
-                    placeholder={displayPlaceholder || '请输入或选择'}
-                    disabled={field.disabled}
-                    className="bg-background h-10 pr-10 w-full"
-                  />
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={field.disabled}
-                      className="absolute right-0 top-0 h-full w-10 hover:bg-transparent"
-                    >
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </PopoverTrigger>
-                </div>
-                <PopoverContent
-                  className="p-0 w-full"
-                  align="start"
-                  sideOffset={4}
-                  style={{ minWidth: '100%', width: 'auto' }}
-                >
-                  <div className="max-h-[200px] overflow-auto">
-                    {field.options?.map((opt) => (
-                      <div
-                        key={opt}
-                        className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => {
-                          onChange(fieldKey, opt);
-                          document.body.click(); // 点击后关闭popover
-                        }}
-                      >
-                        {opt}
-                      </div>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+            <InputWithDropdown
+              value={value as string}
+              onChange={(val) => onChange(fieldKey, val)}
+              options={field.options}
+              placeholder={displayPlaceholder || '请选择'}
+              inputPlaceholder={displayPlaceholder || '请输入或选择'}
+              disabled={field.disabled}
+            />
           );
         }
         // 没有选项，就只是普通输入框

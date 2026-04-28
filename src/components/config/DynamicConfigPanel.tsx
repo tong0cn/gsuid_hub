@@ -1,0 +1,176 @@
+import { Key, HelpCircle, SlidersHorizontal, Search, Globe, Cog } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { ConfigField, ConfigValue } from './ConfigField';
+import { PluginConfigItem } from '@/lib/api';
+
+// ============================================================================
+// 类型映射：后端 type → ConfigField type
+// ============================================================================
+
+function mapBackendTypeToFieldType(item: PluginConfigItem): string {
+  const rawType = (item.type || '').toLowerCase();
+
+  if (rawType.includes('bool')) return 'boolean';
+  if (rawType.includes('int') || rawType.includes('float')) return 'number';
+  if (rawType.includes('list') || rawType.includes('array')) {
+    return item.options ? 'multiselect' : 'tags';
+  }
+  if (rawType.includes('gstimer')) return 'time';
+  if (rawType.includes('time') || rawType.includes('date')) return 'date';
+  if (rawType.includes('str') || rawType.includes('string')) {
+    return item.options ? 'select' : 'text';
+  }
+  if (rawType.includes('dict') || rawType.includes('object')) return 'text';
+  if (rawType.includes('image')) return 'image';
+
+  // fallback: 有 options 的默认 select
+  if (item.options && item.options.length > 0) return 'select';
+  return 'text';
+}
+
+// 根据字段 key 匹配图标
+function getFieldIcon(fieldKey: string) {
+  const lower = fieldKey.toLowerCase();
+  if (lower.includes('api_key') || lower.includes('apikey') || lower.includes('key')) {
+    return <Key className="w-3 h-3" />;
+  }
+  if (lower.includes('max') || lower.includes('count') || lower.includes('num')) {
+    return <SlidersHorizontal className="w-3 h-3" />;
+  }
+  if (lower.includes('search') || lower.includes('type')) {
+    return <Search className="w-3 h-3" />;
+  }
+  if (lower.includes('host') || lower.includes('url') || lower.includes('base')) {
+    return <Globe className="w-3 h-3" />;
+  }
+  return <Cog className="w-3 h-3" />;
+}
+
+// ============================================================================
+// 组件定义
+// ============================================================================
+
+interface DynamicConfigPanelProps {
+  /** 后端返回的配置字段映射 */
+  config: Record<string, PluginConfigItem>;
+  /** 配置 ID，用于 updateConfigValue */
+  configId: string;
+  /** 值变更回调 */
+  onChange: (configId: string, fieldKey: string, value: ConfigValue) => void;
+  /** 可选：需要排除的字段 key 列表 */
+  excludeKeys?: string[];
+  /** 可选：自定义字段布局，指定哪些字段放在同一行（二维数组） */
+  layout?: string[][];
+}
+
+export function DynamicConfigPanel({
+  config,
+  configId,
+  onChange,
+  excludeKeys = [],
+  layout,
+}: DynamicConfigPanelProps) {
+  // 获取所有需要渲染的字段
+  const allFields = Object.entries(config).filter(
+    ([key]) => !excludeKeys.includes(key)
+  );
+
+  // 如果没有指定 layout，按默认方式渲染（每个字段独占一行）
+  const layoutGroups: string[][] = layout || allFields.map(([key]) => [key]);
+
+  // 收集已布局的字段 key
+  const layoutedKeys = new Set(layoutGroups.flat());
+  // 未在 layout 中指定的字段，追加到末尾
+  const remainingFields = allFields.filter(([key]) => !layoutedKeys.has(key));
+
+  const renderField = (fieldKey: string, item: PluginConfigItem) => {
+    const fieldType = mapBackendTypeToFieldType(item);
+    const icon = getFieldIcon(fieldKey);
+
+    // 构建 options（select 类型需要字符串数组）
+    let options: string[] | undefined;
+    if (fieldType === 'select' && item.options) {
+      options = item.options.map(String);
+    }
+
+    return (
+      <div key={fieldKey} className="space-y-2">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          {icon}
+          {item.title || fieldKey}
+          {item.desc && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-full p-0.5 hover:bg-primary/10 transition-colors focus:outline-none"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/60 hover:text-primary cursor-help" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p>{item.desc}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </Label>
+        <ConfigField
+          fieldKey={fieldKey}
+          field={{
+            type: fieldType as any,
+            label: fieldKey,
+            value: fieldType === 'tags'
+              ? (item.value as string[]) || []
+              : fieldType === 'number'
+              ? (item.value as number) || 0
+              : fieldType === 'boolean'
+              ? (item.value as boolean) ?? false
+              : String(item.value ?? ''),
+            options,
+            placeholder: '',
+            description: item.desc || '',
+          }}
+          showLabel={false}
+          onChange={(k, v) => onChange(configId, k, v)}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {layoutGroups.map((group, groupIndex) => {
+        const fields = group
+          .map((key) => {
+            const item = config[key];
+            return item ? { key, item } : null;
+          })
+          .filter(Boolean) as { key: string; item: PluginConfigItem }[];
+
+        if (fields.length === 0) return null;
+
+        if (fields.length === 1) {
+          return renderField(fields[0].key, fields[0].item);
+        }
+
+        return (
+          <div key={groupIndex} className="grid grid-cols-2 gap-4">
+            {fields.map(({ key, item }) => renderField(key, item))}
+          </div>
+        );
+      })}
+
+      {/* 渲染未在 layout 中指定的剩余字段 */}
+      {remainingFields.map(([key, item]) => renderField(key, item))}
+    </div>
+  );
+}

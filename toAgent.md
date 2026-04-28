@@ -324,97 +324,7 @@ window.location.href = loginPath;
 
 ---
 
-## 6. AI Tools API
-
-### 6.1 获取 AI 工具列表
-
-```
-GET /api/ai/tools/list
-```
-
-**请求头**：
-```
-Authorization: Bearer <token>
-```
-
-**响应**：
-```json
-{
-    "success": true,
-    "data": {
-        "tools": [
-            {
-                "name": "search_knowledge",
-                "description": "检索知识库相关内容..."
-            },
-            {
-                "name": "web_search",
-                "description": "使用 Tavily API 进行 web 搜索..."
-            }
-        ],
-        "count": 10
-    }
-}
-```
-
-**响应字段说明**：
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| success | boolean | 请求是否成功 |
-| data.tools | array | 工具列表 |
-| data.tools[].name | string | 工具名称 |
-| data.tools[].description | string | 工具描述（docstring） |
-| data.count | integer | 工具总数 |
-
----
-
-### 6.2 获取指定工具详情
-
-```
-GET /api/ai/tools/{tool_name}
-```
-
-**请求头**：
-```
-Authorization: Bearer <token>
-```
-
-**路径参数**：
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| tool_name | string | 工具名称 |
-
-**响应（工具存在）**：
-```json
-{
-    "success": true,
-    "data": {
-        "name": "search_knowledge",
-        "description": "检索知识库相关内容..."
-    }
-}
-```
-
-**错误响应（工具不存在）**：
-```json
-{
-    "success": false,
-    "error": "Tool 'xxx' not found"
-}
-```
-
-**错误响应（角色不存在）**：
-```json
-{
-    "status": 1,
-    "msg": "角色 'xxx' 不存在",
-    "data": null
-}
-```
-
----
-
-## 7. 路由规范
+## 6. 路由规范
 
 ### 6.1 路由配置
 
@@ -445,9 +355,9 @@ Authorization: Bearer <token>
 
 ---
 
-## 8. 代码风格要点
+## 7. 代码风格要点
 
-### 8.1 导入路径
+### 7.1 导入路径
 
 使用 `@/` 路径别名：
 
@@ -489,43 +399,43 @@ import { Save, Trash, Settings, Menu } from 'lucide-react';
 
 ---
 
-## 9. 常见开发任务参考
+## 8. 常见开发任务参考
 
-### 9.1 新增页面
+### 8.1 新增页面
 
 1. 在 `src/pages/` 创建 `XXXPage.tsx`
 2. 在 `App.tsx` 添加路由
 3. 在 i18n 文件添加翻译 key
 4. 使用现有 UI 组件组合页面
 
-### 9.2 新增 UI 组件
+### 8.2 新增 UI 组件
 
 1. 考虑是否可使用现有 shadcn/ui 组件
 2. 如需新增，放在 `src/components/ui/` 或相应功能目录
 3. 使用 CVA 定义变体
 4. 使用 `cn()` 合并 className
 
-### 9.3 新增翻译
+### 8.3 新增翻译
 
 1. 在 `zh-CN.json` 和 `en-US.json` 中对应位置添加 key
 2. 使用 `t('模块.具体描述')` 方式调用
 
-### 9.4 主题相关修改
+### 8.4 主题相关修改
 
 1. 修改 `ThemeContext.tsx` 中的颜色配置
 2. 或修改 `tailwind.config.ts` 中的颜色映射
 
-### 9.5 渐进式配置页面开发规范
+### 8.5 渐进式配置页面开发规范
 
 渐进式配置页面（Progressive Configuration Page）是一种混合渲染模式：对于已知的配置项使用精心设计的 UI 组件渲染，对于未知的配置项使用通用的 `ConfigField` 组件兜底。
 
-#### 9.5.1 核心概念
+#### 8.5.1 核心概念
 
 - **预期配置项 (Expected Keys)**: 已知并设计了专门 UI 的配置项
 - **预料之外配置项 (Unexpected Keys)**: 后端返回但前端未单独处理的配置项
 - **混合渲染**: 预期配置项用定制 UI，预料之外配置项用通用卡片
 
-#### 9.5.2 实现模式
+#### 8.5.2 实现模式
 
 以 `ButtonMarkdownSettings.tsx` 为例：
 
@@ -643,7 +553,7 @@ const handleSaveConfig = async () => {
 )}
 ```
 
-#### 9.5.3 关键要点
+#### 8.5.3 关键要点
 
 1. **存储 `rawConfig`**: 保存后端返回的完整原始配置，用于检测预料之外的配置项
 2. **定义 `EXPECTED_CONFIG_KEYS`**: 明确哪些配置项是已知的，用于区分预期和意外
@@ -652,7 +562,7 @@ const handleSaveConfig = async () => {
 5. **handleSaveConfig 完整保存**: 保存时要包含所有配置项，不能遗漏意外的配置项
 6. **使用 `ConfigField` 组件**: 意外配置项通过 `ConfigField` 组件渲染，这是通用的配置字段组件
 
-#### 9.5.4 适用场景
+#### 8.5.4 适用场景
 
 当一个配置组包含：
 - 固定的核心配置项（设计专门 UI）
@@ -660,7 +570,7 @@ const handleSaveConfig = async () => {
 
 ---
 
-### 9.6 侧边栏多级菜单开发规范
+### 8.6 侧边栏多级菜单开发规范
 
 侧边栏导航配置在 `AppSidebar.tsx` 的 `getNavItems` 函数中：
 
@@ -683,14 +593,14 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
 ];
 ```
 
-#### 9.6.1 注意事项
+#### 8.6.1 注意事项
 
 1. **ICON_MAP 更新**: 如果使用新图标，需要在 `ICON_MAP` 中添加
 2. **NAV_ITEMS_KEYS 更新**: 如果新增顶级菜单 key，需要添加到 `NAV_ITEMS_KEYS` 数组
 3. **翻译 key**: 在 i18n 文件中添加 `sidebar.basicConfig`、`sidebar.personaConfig` 和 `sidebar.aiTools`
 4. **自动展开**: 系统会根据当前路由自动展开包含该路由的父级菜单
 
-#### 9.6.2 新增页面步骤
+#### 8.6.2 新增页面步骤
 
 1. 创建页面组件：`src/pages/XXXPage.tsx`
 2. 在 `App.tsx` 添加路由
@@ -699,71 +609,17 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
 
 ---
 
-### 9.7 AI 工具页面开发规范
-
-AI 工具页面 (`AIToolsPage.tsx`) 是一种只读列表页面，用于展示后端提供的所有 AI 工具：
-
-#### 9.7.1 页面布局
-
-- **页边距**: `p-6` 符合基础配置页面规范
-- **大标题**: 使用 Wrench 图标 + 标题，如 `{t('aiTools.title')}`
-- **卡片列表**: 使用 Card 组件展示工具列表
-
-#### 9.7.2 页面特性
-
-- **只读展示**: 仅展示后端返回的 AI 工具列表，不支持修改、新增或删除
-- **列表渲染**: 使用 `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4` 响应式布局
-- **加载状态**: 使用 Skeleton 组件展示加载状态
-- **错误处理**: 显示加载失败的原因
-
-#### 9.7.3 API 调用
-
-```tsx
-// 获取 AI 工具列表
-// GET /api/ai/tools/list
-// 响应: { success: true, data: { tools: [{ name, description }], count: number } }
-const data = await aiToolsApi.getToolsList();
-```
-
-#### 9.7.4 数据结构
-
-```tsx
-interface AITool {
-  name: string;        // 工具名称，如 "search_knowledge"
-  description: string; // 工具描述（docstring）
-}
-
-interface ToolsListResponse {
-  success: boolean;
-  data: {
-    tools: AITool[];
-    count: number;
-  };
-}
-```
-
-#### 9.7.5 关键组件
-
-- **Card**: 工具卡片
-- **CardHeader**: 卡片头部
-- **CardTitle**: 工具名称
-- **CardDescription**: 工具描述
-- **Skeleton**: 加载状态
-- **ScrollArea**: 滚动区域（如需要）
-
----
-
-### 9.8 Persona 人格配置页面开发规范
+### 8.7 Persona 人格配置页面开发规范
 
 人格配置页面 (`PersonaConfigPage.tsx`) 是一种卡片式列表页面：
 
-#### 9.8.1 页面布局
+#### 8.7.1 页面布局
 
 - **页边距**: `p-6` 符合基础配置页面规范
 - **大标题**: 使用 Brain 图标 + 标题，如 `{t('personaConfig.title')}`
 - **两列布局**: `grid grid-cols-1 md:grid-cols-2 gap-4`
 
-#### 9.8.2 卡片设计
+#### 8.7.2 卡片设计
 
 - **头像**: 左侧 48x48 圆角方形，加载失败使用 `/ICON.png`
 - **启用开关**: Switch 组件，启用时红色主题 `data-[state=checked]:bg-red-500`
@@ -771,51 +627,25 @@ interface ToolsListResponse {
 - **群聊 Badge**: 主题色 `bg-primary/10 text-primary`
 - **毛玻璃支持**: 使用 `isGlass ? "glass-card" : "border border-border/50"`
 
-#### 9.8.3 卡片内编辑
+#### 8.7.3 卡片内编辑
 
 - **展开编辑**: 点击"编辑"按钮在卡片下方展开群聊编辑区域
 - **TagsInput**: 使用 TagsInput 组件管理群聊列表
 - **保存/取消**: 展开区域内提供保存和取消按钮
 
-#### 9.8.4 核心功能
+#### 8.7.4 核心功能
 
 - **创建对话框**: Dialog 组件，包含名称和描述输入
 - **编辑对话框**: 查看/编辑人格 Markdown 内容
 - **删除确认**: AlertDialog 二次确认
 - **启用/禁用**: 直接切换 Switch 开关调用 API
 
-#### 9.8.5 API 调用模式
-
-```tsx
-// 获取人格列表
-const listData = await personaApi.getPersonaList();
-
-// 获取人格详情
-const detail = await personaApi.getPersona(name);
-
-// 创建新人格
-await personaApi.createPersona({ name, query });
-
-// 删除人格
-await personaApi.deletePersona(name);
-
-// 切换启用状态 - 更新 enable_persona
-await frameworkConfigApi.updateFrameworkConfig(configName, {
-  enable_persona: newEnabledList,
-});
-
-// 更新群聊关联 - 更新 persona_for_session
-await frameworkConfigApi.updateFrameworkConfig(configName, {
-  persona_for_session: updatedPersonaForSession,
-});
-```
-
-#### 9.8.6 Switch 组件样式
+#### 8.7.5 Switch 组件样式
 
 - **启用状态**: `bg-red-500 hover:bg-red-600`（红色）
 - **禁用状态**: `bg-muted hover:bg-muted/80`（灰色）
 
-#### 9.8.7 关键组件
+#### 8.7.6 关键组件
 
 - **Card**: 人格卡片
 - **Switch**: 启用/禁用开关
@@ -825,7 +655,7 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 - **Badge**: 状态标签、群聊标签
 - **ScrollArea**: 编辑器滚动区域
 
-#### 9.8.8 弹窗小标题 ICON 规范
+#### 8.7.7 弹窗小标题 ICON 规范
 
 在弹窗内容中，如果存在多个分区小标题（如"内容"、"关联群聊"等），**仅在弹窗内的分区标题添加 ICON**，卡片列表页面本身的小标题不需要添加 ICON。
 
@@ -860,27 +690,27 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 
 ---
 
-### 8.9 性能优化注意事项
+### 8.8 性能优化注意事项
 
-#### 8.9.1 图片性能
+#### 8.8.1 图片性能
 
 - **头像图片**: 使用 `?t=Date.now()` 防止缓存
 - **背景图片**: 使用 CSS `background-size: cover` 和 `opacity` 降低性能消耗
 - **图片错误处理**: 使用 `onError` 隐藏加载失败的图片
 
-#### 8.9.2 状态管理
+#### 8.8.2 状态管理
 
 - **useMemo**: 复杂计算结果使用 `useMemo` 缓存
 - **useCallback**: 事件处理函数使用 `useCallback` 避免重复创建
 - **useEffect 依赖**: 正确设置依赖项避免不必要的重新渲染
 
-#### 8.9.3 列表渲染
+#### 8.8.3 列表渲染
 
 - **虚拟列表**: 大数据量列表使用虚拟滚动
 - **分页加载**: 避免一次性加载过多数据
 - **骨架屏**: 加载状态使用 Skeleton 组件提升体验
 
-#### 8.9.4 API 请求
+#### 8.8.4 API 请求
 
 - **Promise.all**: 并发请求多个独立 API
 - **缓存策略**: 合理使用 React Query 的缓存机制
@@ -888,9 +718,9 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 
 ---
 
-### 8.10 低端设备性能优化建议
+### 8.9 低端设备性能优化建议
 
-#### 8.10.1 发现的问题
+#### 8.9.1 发现的问题
 
 1. **图片性能问题**
    - 人格头像使用 `?t=Date.now()` 防止缓存，但每次渲染都会发起新请求
@@ -914,7 +744,7 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
    - `backdrop-filter` 是 GPU 密集型操作
    - 建议：在低端设备或设置中提供关闭选项
 
-#### 8.10.2 快速检查清单
+#### 8.9.2 快速检查清单
 
 - [ ] 列表组件超过 50 项考虑虚拟滚动
 - [ ] 图片使用懒加载和适当缓存
@@ -926,17 +756,17 @@ await frameworkConfigApi.updateFrameworkConfig(configName, {
 
 ---
 
-## 10. TabButtonGroup 组件规范
+## 9. TabButtonGroup 组件规范
 
-### 10.1 组件位置
+### 9.1 组件位置
 ```
 src/components/ui/TabButtonGroup.tsx
 ```
 
-### 10.2 组件说明
+### 9.2 组件说明
 用于替代原有散落的 ToggleGroup 和自定义按钮组，提供统一的标签切换按钮样式。
 
-### 10.3 接口定义
+### 9.3 接口定义
 
 ```typescript
 export interface TabButtonOption {
@@ -956,7 +786,7 @@ interface TabButtonGroupProps {
 }
 ```
 
-### 10.4 使用要求
+### 9.4 使用要求
 
 #### 1. 必须导入 useTheme（获取主题状态）
 ```tsx
@@ -982,7 +812,7 @@ export default function MyPage() {
 #### 3. icon 渲染方式
 图标会自动被包裹在 `w-5 h-5 flex-shrink-0 flex items-center justify-center` 的容器中，确保图标大小一致。
 
-### 10.5 已使用该组件的页面
+### 9.5 已使用该组件的页面
 
 | 页面 | 用途 |
 |------|------|
@@ -992,7 +822,7 @@ export default function MyPage() {
 | PluginsPage | 插件选择、配置名称切换 |
 | BackupPage | 备份设置/下载切换 |
 
-### 10.6 注意事项
+### 9.6 注意事项
 
 1. **不要使用 w-full** - 组件默认 `inline-flex`，会自动适配内容宽度，不需要父容器设置 `w-full`
 
@@ -1004,7 +834,7 @@ export default function MyPage() {
 
 ---
 
-## 11. 关键文件索引
+## 10. 关键文件索引
 
 | 文件 | 用途 |
 |------|------|
@@ -1019,13 +849,13 @@ export default function MyPage() {
 
 ---
 
-## 5. AI配置页面开发记录
+## 11. AI配置页面开发记录
 
-### 5.1 任务概述
+### 11.1 任务概述
 
 为【AI配置】->【基础配置】创建了一个渐进式配置页面，将多个相关配置融合成一个统一且用户友好的界面。
 
-### 5.2 设计原则
+### 11.2 设计原则
 
 1. **渐进式披露（Progressive Disclosure）**
    - 核心配置默认展开，用户一目了然
@@ -1041,7 +871,7 @@ export default function MyPage() {
    - 预料之外的配置项自动归入"其他配置项"区域
    - 确保后端新增配置时前端不会崩溃
 
-### 5.3 新增组件
+### 11.3 新增组件
 
 #### ChipGroup (`src/components/ui/MultiSelectChipGroup.tsx`)
 
@@ -1099,7 +929,7 @@ interface ChipGroupProps {
 />
 ```
 
-### 5.4 关键实现
+### 11.4 关键实现
 
 1. **层级化的配置结构**
    - 服务提供方作为一级配置，包含AI模型、嵌入模型、网络搜索
@@ -1139,7 +969,7 @@ interface ChipGroupProps {
    - 选择特定 provider 后，下方自动显示相关配置
    - 使用圆角背景和缩进区分主配置和子配置
 
-### 5.5 未来需要注意的点
+### 11.5 未来需要注意的点
 
 1. **类型安全**
    - `PluginConfigItem` 已从 `@/lib/api` 导出，避免重复定义
@@ -1163,9 +993,9 @@ interface ChipGroupProps {
 
 ---
 
-## 6. 列表页面与详情页设计规范
+## 12. 列表页面与详情页设计规范
 
-### 6.1 表格行点击打开详情页
+### 12.1 表格行点击打开详情页
 
 对于使用表格（Table）展示数据的列表页面：
 - **点击表格中任意行应打开二级详情页面**
@@ -1188,7 +1018,7 @@ onClick={() => handleViewDetail(item)}
 </TableRow>
 ```
 
-### 6.2 二级详情页标题规范
+### 12.2 二级详情页标题规范
 
 二级详情页面（如弹窗 Dialog）的标题需要：
 - **添加小 ICON**：与页面主标题风格一致，使用 `flex items-center gap-3` 布局
@@ -1217,7 +1047,7 @@ onClick={() => handleViewDetail(item)}
 </div>
 ```
 
-### 6.3 字段分组与间隔
+### 12.3 字段分组与间隔
 
 详情页中的字段应按逻辑分组：
 - 使用 `<Separator />` 或 `border-b` 分隔不同分组
@@ -1226,15 +1056,15 @@ onClick={() => handleViewDetail(item)}
 
 ---
 
-## 7. 配置页面变更检测规范
+## 13. 配置页面变更检测规范
 
-### 7.1 问题背景
+### 13.1 问题背景
 
 在【框架配置】页面中，配置项分为两类：
 1. **预期配置项** - 前端预定义的已知配置项
 2. **预料之外配置项** - 由插件或后端动态新增的配置项（显示在"其他设置"卡片中）
 
-### 7.2 数据存储结构
+### 13.2 数据存储结构
 
 配置组件使用双重存储结构：
 
@@ -1248,7 +1078,7 @@ interface LocalConfig {
 }
 ```
 
-### 7.3 变更检测实现规范
+### 13.3 变更检测实现规范
 
 **必须同时跟踪两个状态的原始值：**
 
@@ -1303,7 +1133,7 @@ const fetchConfigDetail = async (configName: string) => {
 };
 ```
 
-### 7.4 常见错误
+### 13.4 常见错误
 
 ❌ **错误：只比较 config 部分**
 ```typescript
@@ -1322,7 +1152,7 @@ setDirty(false);
 
 ✅ **正确：同时跟踪和比较两个状态**
 
-### 7.5 需要遵循此规范的文件
+### 13.5 需要遵循此规范的文件
 
 - `MiscSettings.tsx` - 杂项配置
 - `ButtonMarkdownSettings.tsx` - 按钮和MD配置
@@ -1330,21 +1160,21 @@ setDirty(false);
 
 ---
 
-## 8. 其他规范
+## 14. 其他规范
 
-### 8.1 图标使用
+### 14.1 图标使用
 
 - 优先使用 `lucide-react` 图标库
 - 图标大小统一：标题用 `w-5 h-5`，按钮内用 `w-4 h-4`
 - 使用 `gap-2` 或 `gap-3` 保持图标与文字间距
 
-### 8.2 颜色规范
+### 14.2 颜色规范
 
 - 使用 Tailwind 的颜色变量，如 `text-primary`, `bg-primary/10`
 - 避免硬编码颜色值
 - 状态色：成功 `text-green-500`，警告 `text-amber-500`，错误 `text-red-500`
 
-### 8.3 响应式设计
+### 14.3 响应式设计
 
 - 移动端优先，使用 `md:`, `lg:` 等断点
 - 表格在移动端使用卡片布局替代
@@ -1352,5 +1182,102 @@ setDirty(false);
 
 ---
 
-*文档版本: 1.1*
-*最后更新: 2024年*
+## 15. InputWithDropdown 组件规范
+
+### 15.1 组件位置
+
+```
+src/components/ui/input-with-dropdown.tsx
+```
+
+### 15.2 组件说明
+
+用于替代项目中所有"输入框 + 下拉列表"的组合模式。当一个配置项既支持自由输入又支持从预设列表中选择时，**必须**使用此组件，禁止手动拼装 Popover + Input + Button。
+
+### 15.3 接口定义
+
+```typescript
+export interface InputWithDropdownProps {
+  /** 当前值 */
+  value: string;
+  /** 值变化回调 */
+  onChange: (value: string) => void;
+  /** 下拉选项列表 */
+  options: string[];
+  /** 触发按钮的占位文本（无值时显示） */
+  placeholder?: string;
+  /** 下拉面板中输入框的占位文本 */
+  inputPlaceholder?: string;
+  /** 是否禁用 */
+  disabled?: boolean;
+  /** 自定义容器样式 */
+  className?: string;
+  /** Popover 宽度，默认 'w-[400px]' */
+  popoverWidth?: string;
+}
+```
+
+### 15.4 使用示例
+
+#### 基本用法
+
+```tsx
+import { InputWithDropdown } from '@/components/ui/input-with-dropdown';
+
+<InputWithDropdown
+  value={model}
+  onChange={setModel}
+  options={['gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet']}
+  placeholder="选择或输入模型名称"
+  inputPlaceholder="输入或选择模型名称"
+/>
+```
+
+#### 在配置页面中使用
+
+```tsx
+import { InputWithDropdown } from '@/components/ui/input-with-dropdown';
+
+<div className="space-y-2">
+  <Label>API Base URL</Label>
+  <InputWithDropdown
+    value={baseUrl}
+    onChange={setBaseUrl}
+    options={['https://api.openai.com/v1', 'https://api.deepseek.com/v1']}
+    placeholder="选择或输入 API Base URL"
+    inputPlaceholder="https://api.openai.com/v1"
+  />
+</div>
+```
+
+#### 禁用状态
+
+```tsx
+<InputWithDropdown
+  value={value}
+  onChange={onChange}
+  options={options}
+  disabled={true}
+/>
+```
+
+### 15.5 已使用该组件的位置
+
+| 位置 | 用途 |
+|------|------|
+| `ConfigField.tsx` select 类型 | 所有配置页面的下拉选择字段（核心配置、插件配置、框架配置等） |
+| `AIConfigPage.tsx` 新增配置对话框 | API Base URL、模型名称选择 |
+| `AIConfigPage.tsx` 编辑配置对话框 | API Base URL、模型名称选择 |
+
+### 15.6 注意事项
+
+1. **禁止手动拼装** - 遇到"输入框 + 下拉列表"的组合需求时，必须使用此组件，不要手动使用 Popover + Input + Button 拼装
+2. **options 为空时** - 组件会自动隐藏下拉列表区域，仅显示输入框
+3. **选中高亮** - 当前值与选项匹配时会自动高亮显示 `bg-accent`
+4. **Popover 宽度** - 默认 `w-[400px]`，可通过 `popoverWidth` 属性自定义
+5. **与 Select 组件的区别** - `Select` 只能从列表中选择，`InputWithDropdown` 既可选择也可自由输入
+
+---
+
+*文档版本: 2.0*
+*最后更新: 2026年*

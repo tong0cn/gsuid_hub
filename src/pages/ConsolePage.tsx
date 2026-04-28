@@ -8,6 +8,8 @@ import { Terminal, Trash2, Download, Circle } from "lucide-react";
 import { StructuredDataViewer } from "@/components/StructuredDataViewer";
 import { remoteCommandApi } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 interface LogEntry {
   id: string;
@@ -20,6 +22,8 @@ let logCounter = 0;
 
 export default function ConsolePage() {
   const { t } = useLanguage();
+  const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [input, setInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -276,7 +280,12 @@ export default function ConsolePage() {
         </div>
       </div>
 
-      <Card className="backdrop-blur-md bg-white/10 dark:bg-black/10 border border-white/20 dark:border-black/20 shadow-lg flex flex-col overflow-hidden h-[calc(100vh-130px)]">
+      <Card className={cn(
+        "flex flex-col overflow-hidden h-[calc(100vh-130px)]",
+        isGlass
+          ? "backdrop-blur-md bg-white/10 dark:bg-black/10 border border-white/20 dark:border-black/20 shadow-lg"
+          : "bg-card border border-border/50"
+      )}>
         {/* Terminal Header */}
         <div className="flex items-center gap-2 px-4 py-3 bg-background/50 border-b border-border/30">
           <div className="flex gap-1.5">

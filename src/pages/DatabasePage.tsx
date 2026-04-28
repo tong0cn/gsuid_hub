@@ -8,16 +8,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Search, Plus, Pencil, Trash2, Filter, RefreshCw, ChevronLeft, ChevronRight, Settings, Database, X, PlusCircle } from 'lucide-react';
 import { databaseApi, PluginDatabaseInfo, DatabaseTableInfo, DatabaseColumn, PaginatedData } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function DatabasePage() {
   const { t } = useLanguage();
+  const { style } = useTheme();
+  const isGlass = style === 'glassmorphism';
   const [plugins, setPlugins] = useState<PluginDatabaseInfo[]>([]);
   const [selectedPluginId, setSelectedPluginId] = useState<string>('');
   const [activeTable, setActiveTable] = useState<string>('');
@@ -312,49 +315,36 @@ export default function DatabasePage() {
         <p className="text-muted-foreground mt-1">{t('database.description')}</p>
       </div>
 
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <h2 className="text-lg font-semibold min-w-[80px]">{t('database.selectPlugin')}</h2>
-            <Select
-              value={selectedPluginId}
-              onValueChange={setSelectedPluginId}
-            >
-              <SelectTrigger className="w-full sm:w-[300px]">
-                <SelectValue placeholder={t('database.selectPlugin')} />
-              </SelectTrigger>
-              <SelectContent>
-                {plugins.map((plugin) => (
-                  <SelectItem key={plugin.plugin_id} value={plugin.plugin_id}>
-                    <div className="flex items-center gap-2">
-                      {plugin.icon ? (
-                        <img src={plugin.icon} alt={plugin.plugin_name} className="w-4 h-4 object-contain" />
-                      ) : (
-                        <Settings className="w-4 h-4" />
-                      )}
-                      {plugin.plugin_name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div>
+        <TabButtonGroup
+          options={plugins.map((plugin) => ({
+            value: plugin.plugin_id,
+            label: plugin.plugin_name,
+            icon: plugin.icon ? (
+              <img src={plugin.icon} alt={plugin.plugin_name} className="w-4 h-4 object-contain" />
+            ) : (
+              <Settings className="w-4 h-4" />
+            ),
+          }))}
+          value={selectedPluginId}
+          onValueChange={setSelectedPluginId}
+          glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+        />
+      </div>
 
       {selectedPlugin && selectedPlugin.tables.length > 0 && (
-        <Card className="glass-card">
-          <CardContent className="p-4">
-            <h2 className="text-lg font-semibold mb-3 block">{t('database.selectTable')}</h2>
-            <ToggleGroup type="single" value={activeTable} onValueChange={setActiveTable} className="flex flex-wrap gap-1">
-              {selectedPlugin.tables.map((table) => (
-                <ToggleGroupItem key={table.table_name} value={table.table_name} className="px-4 py-2">
-                  {table.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </CardContent>
-        </Card>
+        <div>
+          <TabButtonGroup
+            options={selectedPlugin.tables.map((table) => ({
+              value: table.table_name,
+              label: table.label,
+              icon: <Database className="w-4 h-4" />,
+            }))}
+            value={activeTable}
+            onValueChange={setActiveTable}
+            glassClassName={isGlass ? 'glass-card' : 'border border-border/50'}
+          />
+        </div>
       )}
 
       {activeTable && tableMetadata && (

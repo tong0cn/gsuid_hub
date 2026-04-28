@@ -778,8 +778,8 @@ export default function PersonaConfigPage() {
           'hover:shadow-xl hover:scale-[1.02]',
           // 毛玻璃效果 + 红色主题边框
           isGlass
-            ? 'glass-card border border-red-500/20 hover:border-red-500/40'
-            : 'border border-red-500/30 hover:border-red-500/50 bg-card'
+            ? 'glass-card border border-primary/20 hover:border-primary/40'
+            : 'border border-primary/30 hover:border-primary/50 bg-card'
         )}
       >
         {/* 立绘背景层 */}
@@ -806,8 +806,8 @@ export default function PersonaConfigPage() {
               className={cn(
                 'w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden shrink-0',
                 'cursor-pointer transition-all',
-                'ring-2 ring-red-500/30 hover:ring-red-500/60',
-                persona.has_avatar ? 'bg-transparent' : 'bg-red-500/10'
+                'ring-2 ring-primary/30 hover:ring-primary/60',
+                persona.has_avatar ? 'bg-transparent' : 'bg-primary/10'
               )}
               title={t('personaConfig.uploadAvatar')}
             >
@@ -821,7 +821,7 @@ export default function PersonaConfigPage() {
                   }}
                 />
               ) : (
-                <Upload className="w-5 h-5 text-red-500/60" />
+                <Upload className="w-5 h-5 text-primary/60" />
               )}
             </div>
 
@@ -833,7 +833,7 @@ export default function PersonaConfigPage() {
                   variant="ghost"
                   size="icon"
                   onClick={(e) => handleDeleteClick(e, persona.name)}
-                  className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                   disabled={isDeleting === persona.name}
                 >
                   {isDeleting === persona.name ? (
@@ -856,7 +856,7 @@ export default function PersonaConfigPage() {
                   {getScopeLabel(scope, t)}
                 </Badge>
                 {aiModes.length > 0 && (
-                  <Badge className="text-[10px] px-2 py-0.5 h-5 rounded-full font-medium bg-red-500/15 text-red-600 border border-red-500/30">
+                  <Badge className="text-[10px] px-2 py-0.5 h-5 rounded-full font-medium bg-primary/15 text-primary border border-primary/30">
                     {aiModes.length} {t('personaConfig.modesEnabled')}
                   </Badge>
                 )}
@@ -898,9 +898,9 @@ export default function PersonaConfigPage() {
           </div>
 
           {/* === 区域4: 启用范围选择（分隔线 + 胶囊按钮） === */}
-          <div className="pt-3 border-t border-red-500/10" onClick={(e) => e.stopPropagation()}>
+          <div className="pt-3 border-t border-primary/10" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-1 mb-2">
-              <Globe className="w-3 h-3 text-red-500/60" />
+              <Globe className="w-3 h-3 text-primary/60" />
               <Label className="text-[10px] text-muted-foreground leading-none">{t('personaConfig.enableScope')}</Label>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -928,7 +928,7 @@ export default function PersonaConfigPage() {
           {/* === 区域5: AI 模式选择（胶囊按钮） === */}
           <div onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-1 mb-2">
-              <Settings className="w-3 h-3 text-red-500/60" />
+              <Settings className="w-3 h-3 text-primary/60" />
               <Label className="text-[10px] text-muted-foreground leading-none">{t('personaConfig.aiModes')}</Label>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -950,17 +950,17 @@ export default function PersonaConfigPage() {
                       'relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] text-left transition-all border',
                       mode.disabled && 'opacity-40 cursor-not-allowed',
                       isSelected
-                        ? 'bg-red-500/15 text-red-600 border-red-500/40 shadow-sm'
+                        ? 'bg-primary/15 text-primary border-primary/40 shadow-sm'
                         : 'bg-transparent text-muted-foreground border-border/30 hover:bg-muted/30 hover:border-border/50'
                     )}
                   >
                     <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">{mode.icon}</span>
                     <span className="flex-1 text-left">{mode.label}</span>
                     {mode.value === '定时巡检' && isSelected && inspectInterval && (
-                      <span className="text-[9px] text-red-500/70 shrink-0">{inspectInterval}{t('personaConfig.minutesUnit')}</span>
+                      <span className="text-[9px] text-primary/70 shrink-0">{inspectInterval}{t('personaConfig.minutesUnit')}</span>
                     )}
                     {mode.value === '提及应答' && isSelected && (persona.config?.keywords?.length ?? 0) > 0 && (
-                      <span className="text-[9px] text-red-500/70 shrink-0">{persona.config?.keywords?.length}{t('personaConfig.keywordsCountSuffix')}</span>
+                      <span className="text-[9px] text-primary/70 shrink-0">{persona.config?.keywords?.length}{t('personaConfig.keywordsCountSuffix')}</span>
                     )}
                   </button>
                 );
@@ -970,9 +970,9 @@ export default function PersonaConfigPage() {
 
           {/* === 区域6: 关联群聊（仅特定模式） === */}
           {scope === 'specific' && (
-            <div className="pt-3 border-t border-red-500/10" onClick={(e) => e.stopPropagation()}>
+            <div className="pt-3 border-t border-primary/10" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1 mb-2">
-                <Users className="w-3 h-3 text-red-500/60" />
+                <Users className="w-3 h-3 text-primary/60" />
                 <Label className="text-[10px] text-muted-foreground leading-none">{t('personaConfig.enabledGroups')}</Label>
               </div>
               <TagsInput

@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
 import { Wrench, AlertCircle } from 'lucide-react';
 import { aiToolsApi, AITool } from '@/lib/api';
@@ -23,6 +24,7 @@ import {
 interface ParsedTool {
   name: string;
   title: string;
+  subtitle: string;
   summary: string;
   fullDescription: string;
   plugin: string;
@@ -33,11 +35,22 @@ interface ParsedTool {
 // 工具函数
 // ============================================================================
 
-function parseToolDescription(tool: AITool): ParsedTool {
+function parseToolDescription(tool: AITool, language: string): ParsedTool {
   const lines = tool.description.split('\n');
-  const firstLine = lines[0];
-  // 如果第一行字数小于11，则作为标题
-  const title = firstLine.length < 11 ? firstLine : tool.name;
+  const firstLine = lines[0].trim();
+  
+  let title: string;
+  let subtitle: string;
+  
+  if (language === 'zh-CN') {
+    // 中文模式：第一行中文作为 title，函数名作为 subtitle
+    title = firstLine || tool.name;
+    subtitle = tool.name;
+  } else {
+    // 英文模式：函数名作为 title，第一行作为 subtitle
+    title = tool.name;
+    subtitle = firstLine || tool.name;
+  }
   
   // Args 之前的所有内容作为简介
   const summaryLines: string[] = [];
@@ -55,6 +68,7 @@ function parseToolDescription(tool: AITool): ParsedTool {
   return {
     name: tool.name,
     title,
+    subtitle,
     summary,
     fullDescription: tool.description,
     plugin: tool.plugin,
@@ -68,7 +82,7 @@ function parseToolDescription(tool: AITool): ParsedTool {
 
 export default function AIToolsPage() {
   const { style } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isGlass = style === 'glassmorphism';
 
   // 状态
@@ -83,9 +97,10 @@ export default function AIToolsPage() {
   const [selectedTool, setSelectedTool] = useState<ParsedTool | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   
-  // 筛选状态 - 同时支持分类和插件筛选
+  // 筛选状态 - 同时支持分类、插件和搜索筛选
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedPlugin, setSelectedPlugin] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // 获取所有插件列表（core 放在最后）
   const pluginList = useMemo(() => {
@@ -118,12 +133,20 @@ export default function AIToolsPage() {
       result = result.filter(tool => tool.plugin === selectedPlugin);
     }
     
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      result = result.filter(tool =>
+        tool.name.toLowerCase().includes(query) ||
+        tool.description.toLowerCase().includes(query)
+      );
+    }
+    
     return result;
-  }, [tools, selectedCategory, selectedPlugin]);
+  }, [tools, selectedCategory, selectedPlugin, searchQuery]);
 
   // 解析后的工具列表
   const parsedTools = useMemo(() => {
-    return filteredTools.map(tool => parseToolDescription(tool));
+    return filteredTools.map(tool => parseToolDescription(tool, language));
   }, [filteredTools]);
 
   // 加载工具列表
@@ -204,6 +227,18 @@ export default function AIToolsPage() {
             />
           </div>
 
+          {/* 搜索筛选 */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{t('aiTools.search')}：</span>
+            <Input
+              type="text"
+              placeholder={t('aiTools.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+
           {/* 工具统计 */}
           <p className="text-sm text-muted-foreground">
             {t('aiTools.toolCount', { count: filteredTools.length, total: totalCount })}
@@ -279,7 +314,7 @@ export default function AIToolsPage() {
                   </div>
                 </div>
                 <CardDescription className="text-xs text-muted-foreground font-mono">
-                  {tool.name}
+                  {tool.subtitle}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -298,10 +333,10 @@ export default function AIToolsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wrench className="w-5 h-5 text-primary" />
-              {selectedTool?.name}
+              {selectedTool?.title}
             </DialogTitle>
             <DialogDescription className="text-base">
-              {selectedTool?.title}
+              {selectedTool?.subtitle}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-2">

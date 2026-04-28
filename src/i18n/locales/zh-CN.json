@@ -344,8 +344,13 @@
       "webSearchService": "网络搜索服务",
       "webSearchServiceDesc": "配置网络搜索能力",
       "tavilyConfig": "Tavily配置",
+      "exaConfig": "Exa配置",
+      "miniMaxConfig": "MiniMax配置",
       "maxResults": "最大结果数",
-      "searchDepth": "搜索深度"
+      "searchDepth": "搜索深度",
+      "searchType": "搜索类型",
+      "apiHost": "API 主机地址",
+      "resourceMode": "资源提供方式"
     },
     "advancedSettings": {
       "title": "高级设置",
@@ -550,7 +555,9 @@
     "allPlugins": "全部插件",
     "selectCategory": "选择分类",
     "selectPlugin": "选择插件",
-    "toolCount": "显示 {count} / {total} 个工具"
+    "toolCount": "显示 {count} / {total} 个工具",
+    "search": "搜索",
+    "searchPlaceholder": "输入工具名称或描述关键词..."
   },
   "aiSkills": {
     "title": "AI 技能",
@@ -894,7 +901,7 @@
   },
   "tagsInput": {
     "more": "更多",
-    "searchAdded": "搜索已添加的标签...",
+    "searchAdded": "搜索或者直接输入新增标签...",
     "enterToAdd": "回车添加",
     "alreadyAdded": "该标签已添加",
     "addedTags": "已添加的标签",
