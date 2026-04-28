@@ -1279,5 +1279,161 @@ import { InputWithDropdown } from '@/components/ui/input-with-dropdown';
 
 ---
 
-*文档版本: 2.0*
+## 16. DynamicConfigPanel 通用配置面板组件
+
+### 16.1 组件位置
+
+`src/components/config/DynamicConfigPanel.tsx`
+
+### 16.2 功能说明
+
+根据后端 `PluginConfigItem` 的 `type` 字段自动渲染对应的配置字段 UI，无需手动为每个字段编写 Label + Tooltip + ConfigField 代码。
+
+### 16.3 后端 type → ConfigField type 映射
+
+| 后端 type | 映射为 ConfigField type |
+|-----------|----------------------|
+| `*bool*` | `boolean` |
+| `*int*` / `*float*` | `number` |
+| `*list*` / `*array*` + options | `multiselect` |
+| `*list*` / `*array*` 无 options | `tags` |
+| `*gstimer*` | `time` |
+| `*time*` / `*date*` | `date` |
+| `*str*` + options | `select` |
+| `*str*` 无 options | `text` |
+| `*dict*` / `*object*` | `text`（JSON 序列化） |
+| `*image*` | `image` |
+
+### 16.4 Props
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `config` | `Record<string, PluginConfigItem>` | 后端返回的配置字段映射 |
+| `configId` | `string` | 配置 ID，用于 updateConfigValue |
+| `onChange` | `(configId, fieldKey, value) => void` | 值变更回调 |
+| `excludeKeys?` | `string[]` | 需要排除的字段 key 列表 |
+| `layout?` | `string[][]` | 自定义布局，同数组内的字段并排显示 |
+
+### 16.5 使用示例
+
+```tsx
+import { DynamicConfigPanel } from '@/components/config';
+
+// 基本用法 - 自动渲染所有字段
+<DynamicConfigPanel
+  config={configData.config}
+  configId={configData.id}
+  onChange={updateConfigValue}
+/>
+
+// 自定义布局 - api_key 独占一行，max_results 和 search_depth 并排
+<DynamicConfigPanel
+  config={configData.config}
+  configId={configData.id}
+  onChange={updateConfigValue}
+  layout={[['api_key'], ['max_results', 'search_depth']]}
+/>
+
+// 排除已手动渲染的字段
+<DynamicConfigPanel
+  config={aiConfig.config}
+  configId={aiConfig.id}
+  onChange={updateConfigValue}
+  excludeKeys={['enable', 'enable_rerank', 'enable_memory', 'websearch_provider']}
+  layout={[['white_list', 'black_list']]}
+/>
+```
+
+### 16.6 自动特性
+
+- 根据字段 `title` 显示标签（中文标题）
+- 根据字段 `desc` 自动生成 Tooltip 帮助图标
+- 根据字段 key 自动匹配图标（api_key→Key, max→SlidersHorizontal, host→Globe 等）
+- 未在 `layout` 中指定的字段自动追加到末尾
+
+### 16.7 已使用该组件的位置
+
+| 位置 | 用途 |
+|------|------|
+| `AIConfigPage.tsx` 嵌入模型服务面板 | 嵌入模型配置、Rerank 模型配置 |
+| `AIConfigPage.tsx` 网络搜索服务面板 | Tavily、Exa、MiniMax 搜索配置 |
+| `AIConfigPage.tsx` 高级设置面板 | HuggingFace 地址、白名单、黑名单 |
+| `AIConfigPage.tsx` 记忆配置面板 | 记忆会话、检索 Top-K |
+
+### 16.8 注意事项
+
+1. **特殊 UI 字段需手动渲染** - 如 ToggleRow（开关）、ChipGroup（多选标签）、Badge 提示等特殊 UI 的字段，应通过 `excludeKeys` 排除后手动渲染
+2. **新增搜索服务** - 只需添加 `useMemo` 获取配置 + 一行 `<DynamicConfigPanel>` 即可，无需手动编写每个字段的 Label/Tooltip/ConfigField
+3. **type 映射与插件配置页面一致** - 映射逻辑参考 `PluginsPage.tsx` 中的 `convertConfigToFields` 函数
+
+---
+
+## 17. 配置保存按钮竞态问题规范
+
+### 17.1 问题描述
+
+在 `AIConfigPage.tsx` 中，配置数据通过多个异步请求逐个加载。如果在所有配置加载完成前就设置 `originalConfig`（用于判断是否有变更），会导致保存按钮误亮。
+
+### 17.2 根本原因
+
+1. **部分加载导致 dirty 误判** - `fetchConfigDetail` 逐个异步加载配置，第一个配置到达时 `configs` 就有 key 了，`originalConfig` 被设置为不完整的快照，后续配置到达后 `configs` 与 `originalConfig` 不一致
+2. **非配置操作触发 configs 变更** - 如切换高/低级任务后调用 `fetchAllConfigs()`，会重新构建 `configs` 对象，但 `originalConfig` 未同步更新
+3. **重复请求** - useEffect 依赖 `configs`，每次请求完成更新 `configs` 后又触发 effect 重新运行
+
+### 17.3 解决方案
+
+```tsx
+// 1. 使用 ref 跟踪已请求过的配置，避免重复请求
+const fetchedConfigNamesRef = useRef<Set<string>>(new Set());
+
+useEffect(() => {
+  if (configList.length > 0) {
+    configList.forEach(config => {
+      if (!configs[config.id] && !fetchedConfigNamesRef.current.has(config.full_name)) {
+        fetchedConfigNamesRef.current.add(config.full_name);
+        fetchConfigDetail(config.full_name);
+      }
+    });
+  }
+}, [configList, configs, fetchConfigDetail]);
+
+// 2. 等待所有配置都加载完成后再设置 originalConfig
+useEffect(() => {
+  if (configList.length > 0 && Object.keys(configs).length >= configList.length && !hasInitialized) {
+    setOriginalConfig(JSON.parse(JSON.stringify(configs)));
+    setHasInitialized(true);
+  }
+}, [configs, configList, hasInitialized]);
+
+// 3. 非配置操作（如切换高/低级任务）完成后同步 originalConfig
+const handleSetHighLevelConfig = useCallback(async (configName, provider) => {
+  await providerConfigApi.setHighLevelConfig(configName, provider);
+  await fetchAllConfigs();
+  setOriginalConfig(JSON.parse(JSON.stringify(configs))); // 同步
+}, [configs, fetchAllConfigs]);
+
+// 4. 只保存实际发生变化的配置，避免并发写入竞态
+const handleSaveConfig = async () => {
+  const changedConfigs = Object.values(configs).filter(config => {
+    const original = originalConfig[config.id];
+    if (!original) return true;
+    return JSON.stringify(config.config) !== JSON.stringify(original.config);
+  });
+  for (const config of changedConfigs) {
+    await frameworkConfigApi.updateFrameworkConfig(config.full_name, configToSave);
+  }
+  setOriginalConfig(JSON.parse(JSON.stringify(configs)));
+};
+```
+
+### 17.4 注意事项
+
+1. **originalConfig 必须在所有配置加载完成后才设置** - 使用 `Object.keys(configs).length >= configList.length` 判断
+2. **非配置变更操作也需要同步 originalConfig** - 如切换高/低级任务、刷新配置列表等
+3. **保存时只发送变化的配置** - 避免并发写入导致后端竞态条件
+4. **使用 ref 避免重复请求** - useEffect 依赖 `configs` 时，用 ref 记录已请求的配置名
+
+---
+
+*文档版本: 2.1*
 *最后更新: 2026年*
