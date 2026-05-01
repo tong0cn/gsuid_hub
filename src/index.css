@@ -204,6 +204,47 @@ All colors MUST be HSL.
   box-shadow: 0 4px 16px hsl(0 0% 0% / 0.1);
 }
 
+/* Glass card with red/danger tint for warning banners */
+.glass-card-danger {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.6) !important;
+  box-shadow:
+    0 8px 32px rgba(239, 68, 68, 0.15),
+    inset 0 1px 0 rgba(239, 68, 68, 0.2);
+  min-width: 0;
+}
+
+[data-style="glassmorphism"] .glass-card-danger {
+  backdrop-filter: blur(var(--blur-intensity, 12px));
+  -webkit-backdrop-filter: blur(var(--blur-intensity, 12px));
+  will-change: backdrop-filter;
+}
+
+/* Dark mode - glassmorphism */
+.dark .glass-card-danger {
+  background: rgba(80, 15, 15, 0.6) !important;
+  border: 1px solid rgba(160, 35, 35, 0.45) !important;
+  box-shadow:
+    0 8px 32px rgba(80, 15, 15, 0.3),
+    inset 0 1px 0 rgba(160, 35, 35, 0.12);
+}
+
+/* Solid style - light */
+[data-style="solid"] .glass-card-danger {
+  background: hsl(0, 84%, 95%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid hsl(0, 84%, 82%) !important;
+  box-shadow: 0 4px 16px hsl(0, 84%, 80% / 0.3);
+}
+
+/* Solid style - dark */
+[data-style="solid"] .dark .glass-card-danger {
+  background: hsl(0, 40%, 12%) !important;
+  border: 1px solid hsl(0, 50%, 30%) !important;
+  box-shadow: 0 4px 16px hsl(0, 50%, 20% / 0.3);
+}
+
 [data-style="solid"] .glass-sidebar,
 [data-style="solid"] .floating-sidebar {
   background: hsl(var(--sidebar)) !important;

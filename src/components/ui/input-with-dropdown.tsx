@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useMemo, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,23 @@ export function InputWithDropdown({
   className,
   popoverWidth = 'w-[400px]',
 }: InputWithDropdownProps) {
+  // 根据输入值实时筛选列表
+  const filteredOptions = useMemo(() => {
+    if (!value.trim()) return options;
+    const lowerValue = value.toLowerCase();
+    return options.filter(option => option.toLowerCase().includes(lowerValue));
+  }, [value, options]);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenAutoFocus = useCallback((e: Event) => {
+    e.preventDefault();
+    // 延迟聚焦，确保 Popover 已完全渲染
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, []);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -60,18 +78,27 @@ export function InputWithDropdown({
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn(popoverWidth, 'p-0')} align="start">
+      <PopoverContent
+        className={cn(popoverWidth, 'p-0')}
+        align="start"
+        onOpenAutoFocus={handleOpenAutoFocus}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <div className="p-2">
           <Input
+            ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={inputPlaceholder}
             className="h-9"
           />
         </div>
-        {options.length > 0 && (
-          <div className="max-h-[200px] overflow-auto border-t">
-            {options.map((option) => (
+        {filteredOptions.length > 0 && (
+          <div
+            className="max-h-[200px] overflow-y-auto border-t"
+            onWheel={(e) => e.stopPropagation()}
+          >
+            {filteredOptions.map((option) => (
               <div
                 key={option}
                 className={cn(
@@ -83,6 +110,11 @@ export function InputWithDropdown({
                 {option}
               </div>
             ))}
+          </div>
+        )}
+        {value.trim() && filteredOptions.length === 0 && (
+          <div className="px-3 py-2 text-sm text-muted-foreground border-t">
+            无匹配选项
           </div>
         )}
       </PopoverContent>

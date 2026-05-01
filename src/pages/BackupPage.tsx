@@ -305,9 +305,11 @@ export default function BackupPage() {
         description: t('backup.deleteSuccess'),
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '';
+      const baseMsg = t('backup.deleteFailed') || 'Error deleting backup file';
       toast({
         title: t('common.error'),
-        description: t('backup.deleteFailed') || 'Error deleting backup file',
+        description: errorMsg ? `${baseMsg}: ${errorMsg}` : baseMsg,
         variant: "destructive",
       });
     }

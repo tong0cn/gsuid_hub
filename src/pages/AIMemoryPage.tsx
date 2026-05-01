@@ -1663,7 +1663,7 @@ export default function AIMemoryPage() {
       setScopes(scopesData);
       const statsData = await memoryApi.getStats();
       if (statsData) setStats(statsData);
-    } catch { toast.error(t('aiMemory.deleteScopeFailed')); }
+    } catch (error) { const errorMsg = error instanceof Error ? error.message : ''; toast.error(errorMsg ? `${t('aiMemory.deleteScopeFailed')}: ${errorMsg}` : t('aiMemory.deleteScopeFailed')); }
   };
 
   const handleDeleteEpisode = async (episodeId: string) => {
@@ -1674,7 +1674,7 @@ export default function AIMemoryPage() {
       fetchEpisodes(episodePage);
       const statsData = await memoryApi.getStats();
       if (statsData) setStats(statsData);
-    } catch { toast.error(t('aiMemory.deleteFailed')); }
+    } catch (error) { const errorMsg = error instanceof Error ? error.message : ''; toast.error(errorMsg ? `${t('aiMemory.deleteFailed')}: ${errorMsg}` : t('aiMemory.deleteFailed')); }
   };
 
   const handleDeleteEntity = async (entityId: string) => {
@@ -1685,7 +1685,7 @@ export default function AIMemoryPage() {
       fetchEntities(entityPage);
       const statsData = await memoryApi.getStats();
       if (statsData) setStats(statsData);
-    } catch { toast.error(t('aiMemory.deleteFailed')); }
+    } catch (error) { const errorMsg = error instanceof Error ? error.message : ''; toast.error(errorMsg ? `${t('aiMemory.deleteFailed')}: ${errorMsg}` : t('aiMemory.deleteFailed')); }
   };
 
   const handleDeleteEdge = async (edgeId: string) => {
@@ -1696,7 +1696,7 @@ export default function AIMemoryPage() {
       fetchEdges(edgePage);
       const statsData = await memoryApi.getStats();
       if (statsData) setStats(statsData);
-    } catch { toast.error(t('aiMemory.deleteFailed')); }
+    } catch (error) { const errorMsg = error instanceof Error ? error.message : ''; toast.error(errorMsg ? `${t('aiMemory.deleteFailed')}: ${errorMsg}` : t('aiMemory.deleteFailed')); }
   };
 
   const openDetailDialog = async (type: 'episode' | 'entity' | 'edge' | 'category', id: string) => {

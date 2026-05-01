@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Store, Search, Package, RefreshCw, Download, Trash2, Star, User, DownloadCloud } from 'lucide-react';
+import { Store, Search, Package, RefreshCw, Download, Trash2, Star, User, DownloadCloud, GitBranch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { pluginStoreApi, StorePlugin } from '@/lib/api';
+import { pluginStoreApi, StorePlugin, gitMirrorApi, GitPluginInfo } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import GitMirrorDialog from '@/components/GitMirrorDialog';
 
 export default function PluginStorePage() {
   const { toast } = useToast();
@@ -20,6 +21,8 @@ export default function PluginStorePage() {
   const [toolPlugins, setToolPlugins] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [gitMirrorOpen, setGitMirrorOpen] = useState(false);
+  const [gitPluginsMap, setGitPluginsMap] = useState<Record<string, GitPluginInfo>>({});
 
   // 判断插件是否为"停止维护"
   const isDeprecated = (plugin: StorePlugin) => {
@@ -52,8 +55,24 @@ export default function PluginStorePage() {
     }
   };
 
+  // Fetch git mirror info for installed plugins
+  const fetchGitMirrorInfo = async () => {
+    try {
+      const data = await gitMirrorApi.getInfo();
+      const map: Record<string, GitPluginInfo> = {};
+      data.plugins.forEach(p => {
+        map[p.name.toLowerCase()] = p;
+      });
+      setGitPluginsMap(map);
+    } catch (error) {
+      // 静默失败，不影响主页面
+      console.error('Failed to fetch git mirror info:', error);
+    }
+  };
+
   useEffect(() => {
     fetchPlugins();
+    fetchGitMirrorInfo();
   }, []);
 
   // Handle install plugin - 直接更新本地状态，不重新请求 API
@@ -169,6 +188,14 @@ export default function PluginStorePage() {
           <p className="text-muted-foreground mt-1">{t('pluginStore.description')}</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setGitMirrorOpen(true)}
+            className="gap-2"
+          >
+            <GitBranch className="w-4 h-4" />
+            {t('gitMirror.title')}
+          </Button>
           <Button
             variant="outline"
             onClick={fetchPlugins}
@@ -319,6 +346,19 @@ export default function PluginStorePage() {
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {plugin.info || plugin.description}
                           </p>
+                          {/* Remote URL 显示（仅已安装插件） */}
+                          {plugin.installed && (() => {
+                            const gitInfo = gitPluginsMap[plugin.id.toLowerCase()];
+                            if (gitInfo && gitInfo.is_git_repo && gitInfo.remote_url) {
+                              return (
+                                <p className="text-xs text-muted-foreground/70 mt-1 truncate flex items-center gap-1" title={gitInfo.remote_url}>
+                                  <GitBranch className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{gitInfo.remote_url}</span>
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -427,6 +467,11 @@ export default function PluginStorePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <GitMirrorDialog
+        open={gitMirrorOpen}
+        onOpenChange={setGitMirrorOpen}
+      />
     </div>
   );
 }

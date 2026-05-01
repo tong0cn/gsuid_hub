@@ -33,6 +33,7 @@ import AIScheduledTasksPage from "@/pages/AIScheduledTasksPage";
 import AIKnowledgePage from "@/pages/AIKnowledgePage";
 import SystemPromptPage from "@/pages/SystemPromptPage";
 import SessionManagementPage from "@/pages/SessionManagementPage";
+import MCPConfigPage from "@/pages/MCPConfigPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -85,6 +86,7 @@ function AppRoutes() {
         <Route path="framework-config" element={<FrameworkConfigPage />} />
         <Route path="ai-config" element={<AIConfigPage />} />
         <Route path="persona-config" element={<PersonaConfigPage />} />
+        <Route path="mcp-config" element={<MCPConfigPage />} />
         <Route path="ai-tools" element={<AIToolsPage />} />
         <Route path="ai-skills" element={<AISkillsPage />} />
         <Route path="ai-statistics" element={<AIStatisticsPage />} />

@@ -495,15 +495,15 @@ export interface PluginStoreListResponse {
 export const pluginsApi = {
   // 获取插件列表（轻量级接口）
   getPluginList: () =>
-    api.get<PluginListItem[]>('/api/plugins/list'),
+    api.get<PluginListItem[]>(`/api/plugins/list?_t=${Date.now()}`),
 
   // 获取插件详情（包含完整配置）
   getPlugin: (pluginName: string) =>
-    api.get<Plugin>(`/api/plugins/${pluginName}`),
+    api.get<Plugin>(`/api/plugins/${pluginName}?_t=${Date.now()}`),
 
   // 获取所有插件（兼容旧接口）
   getPlugins: () =>
-    api.get<Plugin[]>('/api/plugins'),
+    api.get<Plugin[]>(`/api/plugins?_t=${Date.now()}`),
 
   updatePlugin: (pluginName: string, config: Record<string, unknown>) =>
     api.post<{ status: number; msg: string }>(`/api/plugins/${pluginName}`, config),
@@ -645,7 +645,7 @@ export interface ProviderInfo {
   name: string;
   description: string;
   config_count: number;
-  configs: string[];
+  configs: string[]; // provider++name 格式
 }
 
 export interface ProviderListData {
@@ -661,8 +661,9 @@ export interface ProviderConfigField {
 }
 
 export interface ProviderConfigDetail {
-  name: string;
+  name: string;       // provider++name 格式
   provider: string;
+  config_name: string; // 纯配置名
   config: Record<string, ProviderConfigField>;
 }
 
@@ -674,22 +675,19 @@ export interface TaskConfigResponse {
   available_configs: Record<string, string[]>;
 }
 
+export interface AllConfigItem {
+  name: string;       // provider++name 格式
+  provider: string;
+  config_name: string; // 纯配置名
+  model_name: string;
+  base_url: string;
+}
+
 export interface AllConfigsSummary {
-  openai_configs: Array<{
-    name: string;
-    provider: string;
-    model_name: string;
-    base_url: string;
-  }>;
-  anthropic_configs: Array<{
-    name: string;
-    provider: string;
-    model_name: string;
-    base_url: string;
-  }>;
+  configs: AllConfigItem[];
   current_provider: string;
-  high_level_config: string;
-  low_level_config: string;
+  high_level_config: string;   // provider++name 格式
+  low_level_config: string;    // provider++name 格式
 }
 
 export interface ProviderConfigOptions {
@@ -724,26 +722,32 @@ export const providerConfigApi = {
       { config_name: configName, provider }
     ),
 
+  // 清除任务级别配置
+  clearTaskConfig: (taskLevel: 'high' | 'low') =>
+    api.delete<{ status: number; msg: string }>(
+      `/api/provider_config/task_config/${taskLevel}`
+    ),
+
   // 获取所有配置摘要
   getAllConfigs: () =>
     api.get<AllConfigsSummary>('/api/provider_config/all_configs'),
 
   // 获取配置详情
   getConfigDetail: (provider: string, configName: string) =>
-    api.get<{ name: string; provider: string; config: Record<string, ProviderConfigField> }>(
+    api.get<{ name: string; provider: string; config_name: string; config: Record<string, ProviderConfigField> }>(
       `/api/provider_config/config/${provider}/${configName}`
     ),
 
   // 创建或更新配置
   saveConfig: (provider: string, configName: string, config: Record<string, { data: unknown }>) =>
-    api.post<{ status: number; msg: string; data: { name: string; provider: string } }>(
+    api.post<{ status: number; msg: string; data: { name: string; provider: string; config_name: string } }>(
       `/api/provider_config/config/${provider}/${configName}`,
       { config }
     ),
 
   // 创建默认配置
   createDefaultConfig: (provider: string, configName: string) =>
-    api.post<{ status: number; msg: string; data: { name: string; provider: string } }>(
+    api.post<{ status: number; msg: string; data: { name: string; provider: string; config_name: string } }>(
       `/api/provider_config/config/${provider}/${configName}/create_default`
     ),
 
@@ -756,7 +760,7 @@ export const providerConfigApi = {
   // 重命名配置（通过创建新配置+删除旧配置实现）
   renameConfig: async (provider: string, oldName: string, newName: string, apiClient: typeof api): Promise<{ status: number; msg: string }> => {
     // 1. 获取旧配置详情
-    const detail = await apiClient.get<{ name: string; provider: string; config: Record<string, ProviderConfigField> }>(
+    const detail = await apiClient.get<{ name: string; provider: string; config_name: string; config: Record<string, ProviderConfigField> }>(
       `/api/provider_config/config/${provider}/${oldName}`
     );
     // 2. 用新名字保存配置
@@ -1357,6 +1361,13 @@ export const personaApi = {
   // 更新角色配置
   updatePersonaConfig: (personaName: string, config: PersonaConfigUpdateRequest) =>
     api.put<PersonaConfig>(`/api/persona/${encodeURIComponent(personaName)}/config`, config),
+
+  // 更新角色 Markdown 内容
+  updatePersonaContent: (personaName: string, content: string) =>
+    api.put<{ name: string; content: string }>(
+      `/api/persona/${encodeURIComponent(personaName)}/content`,
+      { content }
+    ),
 
   // 获取全局启用的角色
   getGlobalPersona: () =>
@@ -1978,4 +1989,141 @@ export const aiScheduledTasksApi = {
   // 获取任务统计
   getStats: () =>
     api.get<AIScheduledTaskStats>('/api/ai/scheduled_tasks/stats/overview'),
+};
+
+// ===================
+// Git Mirror API - /api/git-mirror
+// ===================
+
+export interface GitMirrorOption {
+  label: string;
+  value: string;
+  type: 'default' | 'mirror' | 'proxy';
+}
+
+export interface GitPluginInfo {
+  name: string;
+  path: string;
+  remote_url: string;
+  is_git_repo: boolean;
+  mirror: 'gitcode' | 'cnb' | 'ghproxy' | 'github' | 'unknown';
+}
+
+export interface GitMirrorInfo {
+  current_mirror: string;
+  available_mirrors: GitMirrorOption[];
+  plugins: GitPluginInfo[];
+}
+
+export interface GitMirrorSetAllResult {
+  name: string;
+  success: boolean;
+  message: string;
+}
+
+export interface GitMirrorSetAllResponse {
+  results: GitMirrorSetAllResult[];
+  summary: {
+    total: number;
+    success_count: number;
+    fail_count: number;
+  };
+}
+
+export interface GitMirrorSetPluginResponse {
+  name: string;
+  success: boolean;
+  message: string;
+}
+
+export const gitMirrorApi = {
+  // 获取 Git 镜像信息
+  getInfo: () =>
+    api.get<GitMirrorInfo>('/api/git-mirror/info'),
+
+  // 批量设置所有插件的镜像源（同时更新配置）
+  setAll: (mirrorPrefix: string) =>
+    api.post<GitMirrorSetAllResponse>('/api/git-mirror/set-all', { mirror_prefix: mirrorPrefix }),
+
+  // 设置单个插件的镜像源
+  setPlugin: (pluginName: string, mirrorPrefix: string) =>
+    api.post<GitMirrorSetPluginResponse>(`/api/git-mirror/set-plugin/${encodeURIComponent(pluginName)}`, { mirror_prefix: mirrorPrefix }),
+
+  // 获取可用镜像源列表
+  getAvailable: () =>
+    api.get<GitMirrorOption[]>('/api/git-mirror/available'),
+
+  // 仅保存镜像源配置（不影响已安装插件，仅影响后续新安装的插件）
+  saveConfig: (mirrorPrefix: string) =>
+    frameworkConfigApi.updateFrameworkConfigItem('GsCore', 'GitMirror', mirrorPrefix),
+};
+
+// ===================
+// MCP Config API
+// ===================
+
+export interface MCPConfig {
+  config_id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface MCPConfigListResponse {
+  configs: MCPConfig[];
+  count: number;
+}
+
+export interface MCPConfigCreateData {
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled?: boolean;
+}
+
+export interface MCPConfigUpdateData {
+  name?: string;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled?: boolean;
+}
+
+export interface MCPReloadResponse {
+  old_tool_count: number;
+  new_tool_count: number;
+  config_count: number;
+}
+
+export const mcpConfigApi = {
+  // 获取 MCP 配置列表
+  getList: () =>
+    api.get<MCPConfigListResponse>('/api/ai/mcp/list'),
+
+  // 获取 MCP 配置详情
+  getDetail: (configId: string) =>
+    api.get<MCPConfig>(`/api/ai/mcp/${encodeURIComponent(configId)}`),
+
+  // 创建 MCP 配置
+  create: (data: MCPConfigCreateData) =>
+    api.post<{ config_id: string; name: string }>('/api/ai/mcp', data),
+
+  // 更新 MCP 配置
+  update: (configId: string, data: MCPConfigUpdateData) =>
+    api.put<{ config_id: string }>(`/api/ai/mcp/${encodeURIComponent(configId)}`, data),
+
+  // 删除 MCP 配置
+  delete: (configId: string) =>
+    api.delete<{ config_id: string }>(`/api/ai/mcp/${encodeURIComponent(configId)}`),
+
+  // 切换启用/禁用状态
+  toggle: (configId: string) =>
+    api.post<{ config_id: string; enabled: boolean }>(`/api/ai/mcp/${encodeURIComponent(configId)}/toggle`),
+
+  // 热重载所有配置
+  reload: () =>
+    api.post<MCPReloadResponse>('/api/ai/mcp/reload'),
 };

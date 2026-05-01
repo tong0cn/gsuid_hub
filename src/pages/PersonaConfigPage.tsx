@@ -657,6 +657,11 @@ export default function PersonaConfigPage() {
         keywords: editingKeywords,
       });
 
+      // 保存 Markdown 内容（仅在内容发生变化时）
+      if (editContent !== editingPersona.content) {
+        await personaApi.updatePersonaContent(editingPersona.name, editContent);
+      }
+
       toast.success(t('personaConfig.saveSuccess'));
       setEditDialogOpen(false);
       setEditingPersona(null);
@@ -715,7 +720,8 @@ export default function PersonaConfigPage() {
       await loadData();
     } catch (error) {
       console.error('Failed to delete persona:', error);
-      toast.error(t('personaConfig.deleteFailed'));
+      const errorMsg = error instanceof Error ? error.message : '';
+      toast.error(errorMsg ? `${t('personaConfig.deleteFailed')}: ${errorMsg}` : t('personaConfig.deleteFailed'));
     } finally {
       setIsDeleting(null);
     }
@@ -788,12 +794,22 @@ export default function PersonaConfigPage() {
             <img
               src={imageUrl}
               alt=""
-              className="w-full h-full object-cover opacity-15 group-hover:opacity-20 transition-opacity"
+              className={cn(
+                "w-full h-full object-cover transition-opacity",
+                isGlass
+                  ? "opacity-30 group-hover:opacity-40"
+                  : "opacity-15 group-hover:opacity-20"
+              )}
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-background/60" />
+            <div className={cn(
+              "absolute inset-0 bg-gradient-to-t",
+              isGlass
+                ? "from-background/80 via-background/50 to-background/30"
+                : "from-background via-background/90 to-background/60"
+            )} />
           </div>
         )}
 

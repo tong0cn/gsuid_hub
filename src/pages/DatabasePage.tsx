@@ -285,9 +285,10 @@ export default function DatabasePage() {
       fetchTableData(activeTable, currentPage, perPage);
     } catch (error) {
       console.error('Failed to delete record:', error);
+      const errorMsg = error instanceof Error ? error.message : '';
       toast({
         title: t('database.deleteFailed'),
-        description: t('database.deleteRecordFailed'),
+        description: errorMsg ? `${t('database.deleteRecordFailed')}: ${errorMsg}` : t('database.deleteRecordFailed'),
         variant: 'destructive'
       });
     }

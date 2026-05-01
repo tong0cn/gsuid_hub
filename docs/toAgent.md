@@ -1435,5 +1435,107 @@ const handleSaveConfig = async () => {
 
 ---
 
-*文档版本: 2.1*
+## 18. Dialog/Modal 组件开发规范
+
+### 18.1 Radix UI Select 空值问题
+
+**问题**：Radix UI 的 `Select.Item` 不允许空字符串 `""` 作为 `value` 属性，否则会抛出运行时错误。
+
+**解决方案**：使用特殊占位符常量替代空字符串：
+
+```tsx
+const DEFAULT_MIRROR_VALUE = '__github_default__';
+
+// 后端值 → Select 值
+const toSelectValue = (value: string) => value || DEFAULT_MIRROR_VALUE;
+// Select 值 → 后端值
+const toMirrorValue = (value: string) => value === DEFAULT_MIRROR_VALUE ? '' : value;
+
+// SelectItem 中使用
+<SelectItem key={mirror.value || DEFAULT_MIRROR_VALUE} value={toSelectValue(mirror.value)}>
+```
+
+### 18.2 毛玻璃主题适配
+
+**规则**：`glass-card` CSS 类已通过 `[data-style="glassmorphism"]` 和 `[data-style="solid"]` 选择器自动适配不同主题模式（纯色/毛玻璃/亮暗）。**应始终应用 `glass-card`**，无需手动判断 `isGlass`。
+
+**错误模式** ❌：
+```tsx
+// 不要这样做！glass-card 已经自动适配主题
+const isGlass = style === 'glassmorphism';
+<DialogContent className={cn("...", isGlass && "glass-card")}>
+<Card className={cn(isGlass ? "glass-card" : "border border-border/50")}>
+```
+
+**正确模式** ✅：
+```tsx
+// 直接应用 glass-card，CSS 会根据 data-style 自动切换效果
+<DialogContent className="... glass-card">
+<AlertDialogContent className="glass-card">
+<Card className="glass-card">
+<div className="rounded-lg p-4 glass-card">
+```
+
+**CSS 行为说明**：
+- `[data-style="glassmorphism"]` → 半透明背景 + `backdrop-filter: blur()`
+- `[data-style="solid"]` → 不透明背景，无模糊效果
+- `.dark` → 暗色模式优化（更低透明度）
+
+### 18.3 移动端适配
+
+**规则**：Dialog 内的数据列表在移动端应使用卡片布局替代表格，确保操作按钮始终可见。
+
+**模式**：使用 `hidden md:block` / `md:hidden` 双布局：
+```tsx
+{/* 桌面端表格 */}
+<div className="hidden md:block">
+  <Table>
+    {/* 表格内容 */}
+  </Table>
+</div>
+
+{/* 移动端卡片列表 */}
+<div className="md:hidden space-y-2 p-2">
+  {items.map((item) => (
+    <div key={item.id} className="rounded-lg p-3 space-y-2 border border-border/50">
+      {/* 第一行：名称 + 状态 + 操作按钮（flex justify-between） */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="font-medium text-sm truncate">{item.name}</span>
+          <Badge>状态</Badge>
+        </div>
+        <Button size="sm" className="shrink-0">操作</Button>
+      </div>
+      {/* 第二行：详细信息 */}
+      <code className="text-xs bg-muted px-1.5 py-0.5 rounded truncate block">{item.url}</code>
+    </div>
+  ))}
+</div>
+```
+
+**关键点**：
+- 移动端卡片中，操作按钮必须放在第一行右侧（`shrink-0`），确保始终可见
+- 使用 `min-w-0 flex-1` 让名称区域自动截断
+- Dialog 宽度使用 `w-[95vw] max-w-4xl` 确保移动端占满屏幕
+- 按钮区域使用 `flex-col sm:flex-row` 确保移动端按钮垂直排列
+
+### 18.4 SSH URL 识别
+
+**规则**：Git remote URL 可能使用 SSH 协议（`ssh://` 或 `git@` 开头），后端可能无法识别而返回 `unknown`。前端应额外检测。
+
+```tsx
+function isSshUrl(url: string): boolean {
+  return url.startsWith('ssh://') || url.startsWith('git@');
+}
+```
+
+### 18.5 API 接口设计经验
+
+- **仅保存配置 vs 批量应用**：区分"保存配置（影响后续新安装）"和"一键应用（同时切换已安装）"两种操作
+- **使用 `frameworkConfigApi.updateFrameworkConfigItem`** 保存单个配置项，避免覆盖其他配置
+- **静默失败**：非关键数据获取（如 git mirror info）应静默失败，不影响主页面功能
+
+---
+
+*文档版本: 2.2*
 *最后更新: 2026年*

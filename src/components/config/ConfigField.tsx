@@ -339,9 +339,10 @@ export function ConfigField({
                 description: "图片已从服务器删除",
               });
             } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : '';
               toast({
                 title: "删除失败",
-                description: "无法删除图片，请稍后重试",
+                description: errorMsg ? `无法删除图片: ${errorMsg}` : "无法删除图片，请稍后重试",
                 variant: "destructive",
               });
             }

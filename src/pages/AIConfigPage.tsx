@@ -30,6 +30,7 @@ import {
   OpenAIConfigData,
   ProviderInfo,
   AllConfigsSummary,
+  AllConfigItem,
   ProviderConfigOptions,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -212,8 +213,8 @@ export default function AIConfigPage() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [currentProvider, setCurrentProvider] = useState<string>('openai');
   const [allConfigs, setAllConfigs] = useState<AllConfigsSummary | null>(null);
-  const [highLevelConfig, setHighLevelConfig] = useState<string>('');
-  const [lowLevelConfig, setLowLevelConfig] = useState<string>('');
+  const [highLevelConfig, setHighLevelConfig] = useState<string>(''); // provider++name 格式
+  const [lowLevelConfig, setLowLevelConfig] = useState<string>('');   // provider++name 格式
 
   // State - OpenAI Config
   const [openaiConfigData, setOpenaiConfigData] = useState<OpenAIConfigData | null>(null);
@@ -293,16 +294,30 @@ export default function AIConfigPage() {
     }
   }, []);
 
+  // 归一化配置名称：如果没有 ++ 分隔符，默认当作 openai provider 处理
+  const normalizeConfigName = useCallback((name: string, configs: AllConfigItem[]): string => {
+    if (!name) return '';
+    // 如果已经是 provider++name 格式，直接返回
+    if (name.includes('++')) return name;
+    // 旧格式（不含 ++），默认当作 openai provider
+    // 尝试在 configs 中查找匹配的配置
+    const match = configs.find(c => c.config_name === name);
+    if (match) return match.name; // 返回 provider++name 格式
+    // 找不到则默认 openai
+    return `openai++${name}`;
+  }, []);
+
   const fetchAllConfigs = useCallback(async () => {
     try {
       const response = await providerConfigApi.getAllConfigs();
       setAllConfigs(response);
-      setHighLevelConfig(response.high_level_config);
-      setLowLevelConfig(response.low_level_config);
+      const configList = response.configs || [];
+      setHighLevelConfig(normalizeConfigName(response.high_level_config || '', configList));
+      setLowLevelConfig(normalizeConfigName(response.low_level_config || '', configList));
     } catch (error) {
       console.error('Failed to fetch all configs:', error);
     }
-  }, []);
+  }, [normalizeConfigName]);
 
   const fetchConfigList = useCallback(async () => {
     try {
@@ -376,13 +391,14 @@ export default function AIConfigPage() {
   // Actions
   // ============================================================================
 
-  const handleSetHighLevelConfig = useCallback(async (configName: string, provider?: string) => {
+  const handleSetHighLevelConfig = useCallback(async (configFullName: string) => {
     try {
-      await providerConfigApi.setHighLevelConfig(configName, provider || currentProvider);
-      setHighLevelConfig(configName);
+      // configFullName 是 provider++name 格式，直接传给后端
+      await providerConfigApi.setHighLevelConfig(configFullName);
+      setHighLevelConfig(configFullName);
       toast({
         title: t('common.success'),
-        description: t('aiConfig.providerConfig.setHighLevelSuccess', { name: configName }),
+        description: t('aiConfig.providerConfig.setHighLevelSuccess', { name: configFullName }),
       });
       // 高低级任务切换不涉及框架配置变更，刷新后同步 originalConfig
       await fetchAllConfigs();
@@ -395,15 +411,16 @@ export default function AIConfigPage() {
         variant: 'destructive',
       });
     }
-  }, [t, fetchAllConfigs, currentProvider, configs]);
+  }, [t, fetchAllConfigs, configs]);
 
-  const handleSetLowLevelConfig = useCallback(async (configName: string, provider?: string) => {
+  const handleSetLowLevelConfig = useCallback(async (configFullName: string) => {
     try {
-      await providerConfigApi.setLowLevelConfig(configName, provider || currentProvider);
-      setLowLevelConfig(configName);
+      // configFullName 是 provider++name 格式，直接传给后端
+      await providerConfigApi.setLowLevelConfig(configFullName);
+      setLowLevelConfig(configFullName);
       toast({
         title: t('common.success'),
-        description: t('aiConfig.providerConfig.setLowLevelSuccess', { name: configName }),
+        description: t('aiConfig.providerConfig.setLowLevelSuccess', { name: configFullName }),
       });
       // 高低级任务切换不涉及框架配置变更，刷新后同步 originalConfig
       await fetchAllConfigs();
@@ -416,7 +433,7 @@ export default function AIConfigPage() {
         variant: 'destructive',
       });
     }
-  }, [t, fetchAllConfigs, currentProvider, configs]);
+  }, [t, fetchAllConfigs, configs]);
 
   const handleSaveOpenaiConfig = useCallback(async () => {
     if (!openaiConfigData || !editingConfigName || !editingConfigProvider) return;
@@ -486,17 +503,56 @@ export default function AIConfigPage() {
 
   const handleDeleteConfig = useCallback(async () => {
     if (!editingConfigName || !editingConfigProvider) return;
+    
+    const fullConfigName = `${editingConfigProvider}++${editingConfigName}`;
+    const configsList = allConfigs?.configs || [];
+    
     try {
+      // 如果删除的配置正在被使用，需要先处理任务配置
+      const isUsedByHigh = highLevelConfig === fullConfigName;
+      const isUsedByLow = lowLevelConfig === fullConfigName;
+      
+      if (isUsedByHigh || isUsedByLow) {
+        // 找到另一个可用的配置
+        const otherConfig = configsList.find(c => c.name !== fullConfigName);
+        
+        if (otherConfig) {
+          // 有其他配置，切换到另一个配置
+          if (isUsedByHigh) {
+            await providerConfigApi.setHighLevelConfig(otherConfig.name);
+          }
+          if (isUsedByLow) {
+            await providerConfigApi.setLowLevelConfig(otherConfig.name);
+          }
+        } else {
+          // 没有其他配置，清除任务配置
+          if (isUsedByHigh) {
+            await providerConfigApi.clearTaskConfig('high');
+          }
+          if (isUsedByLow) {
+            await providerConfigApi.clearTaskConfig('low');
+          }
+        }
+      }
+      
+      // 再删除配置文件
       await providerConfigApi.deleteConfig(editingConfigProvider, editingConfigName);
       toast({ title: t('common.success'), description: t('aiConfig.openaiConfig.deleteSuccess', { name: editingConfigName }) });
       setIsDeleteDialogOpen(false);
       setEditingConfigName('');
+      setHighLevelConfig(prev => prev === fullConfigName ? '' : prev);
+      setLowLevelConfig(prev => prev === fullConfigName ? '' : prev);
       await fetchAllConfigs();
     } catch (error) {
       console.error('Failed to delete config:', error);
-      toast({ title: t('common.error'), description: t('aiConfig.openaiConfig.deleteFailed'), variant: 'destructive' });
+      const errorMsg = error instanceof Error ? error.message : '';
+      toast({
+        title: t('common.error'),
+        description: errorMsg ? `${t('aiConfig.openaiConfig.deleteFailed')}: ${errorMsg}` : t('aiConfig.openaiConfig.deleteFailed'),
+        variant: 'destructive'
+      });
     }
-  }, [editingConfigName, editingConfigProvider, t, fetchAllConfigs]);
+  }, [editingConfigName, editingConfigProvider, t, fetchAllConfigs, highLevelConfig, lowLevelConfig, allConfigs]);
 
   const resetNewConfigForm = () => {
     setNewConfigProvider('openai');
@@ -512,18 +568,17 @@ export default function AIConfigPage() {
     setOpenaiConfigData(prev => prev ? { ...prev, [field]: value } : null);
   }, []);
 
-  const openDeleteDialog = (configName: string, provider?: string) => {
-    setEditingConfigName(configName);
-    if (provider) setEditingConfigProvider(provider);
+  const openDeleteDialog = (configName: string, provider: string) => {
+    setEditingConfigName(configName); // 纯配置名
+    setEditingConfigProvider(provider);
     setIsDeleteDialogOpen(true);
   };
 
-  const openEditDialog = (configName: string, provider?: string) => {
-    setEditingConfigName(configName);
-    const effectiveProvider = provider || editingConfigProvider || 'openai';
-    setEditingConfigProvider(effectiveProvider);
-    fetchConfigDetailForEdit(effectiveProvider, configName);
-    fetchProviderConfigOptions(effectiveProvider);
+  const openEditDialog = (configName: string, provider: string) => {
+    setEditingConfigName(configName); // 纯配置名
+    setEditingConfigProvider(provider);
+    fetchConfigDetailForEdit(provider, configName);
+    fetchProviderConfigOptions(provider);
     setIsEditDialogOpen(true);
   };
 
@@ -639,11 +694,19 @@ export default function AIConfigPage() {
 
   const allConfigsList = useMemo(() => {
     if (!allConfigs) return [];
-    return [
-      ...allConfigs.openai_configs.map(c => ({ ...c, provider: 'openai' as string })),
-      ...allConfigs.anthropic_configs.map(c => ({ ...c, provider: 'anthropic' as string })),
-    ];
+    return allConfigs.configs || [];
   }, [allConfigs]);
+
+  // 验证高级/低级任务配置是否在可用配置列表中
+  const isHighLevelConfigValid = useMemo(() => {
+    if (!highLevelConfig) return false;
+    return allConfigsList.some(c => c.name === highLevelConfig);
+  }, [highLevelConfig, allConfigsList]);
+
+  const isLowLevelConfigValid = useMemo(() => {
+    if (!lowLevelConfig) return false;
+    return allConfigsList.some(c => c.name === lowLevelConfig);
+  }, [lowLevelConfig, allConfigsList]);
 
   // ============================================================================
   // Render
@@ -777,6 +840,49 @@ export default function AIConfigPage() {
                   </Button>
                 </div>
 
+                {/* 未激活配置警告 */}
+                {allConfigsList.length === 0 ? (
+                  <Card className={cn(
+                    isGlass
+                      ? "glass-card border-red-500/50 bg-red-500/10 dark:bg-red-950/50 dark:border-red-800/60"
+                      : "border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950"
+                  )}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                            {t('aiConfig.providerConfig.noConfigFileTitle') || '暂无配置文件'}
+                          </p>
+                          <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
+                            {t('aiConfig.providerConfig.noConfigFileWarning') || '请先点击右上角「新建配置」添加一个配置文件，然后再为高级任务和低级任务选择对应的配置'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (!isHighLevelConfigValid && !isLowLevelConfigValid) && (
+                  <Card className={cn(
+                    isGlass
+                      ? "glass-card border-red-500/50 bg-red-500/10 dark:bg-red-950/50 dark:border-red-800/60"
+                      : "border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950"
+                  )}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                            {t('aiConfig.providerConfig.noActiveConfigTitle')}
+                          </p>
+                          <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
+                            {t('aiConfig.providerConfig.noActiveConfigWarning')}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* 配置文件选择 - 两列布局 */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* 高级任务配置卡片 */}
@@ -797,6 +903,7 @@ export default function AIConfigPage() {
                     ) : (
                       <div className="space-y-2">
                         {allConfigsList.map((configItem) => {
+                          // configItem.name 是 provider++name 格式，highLevelConfig 也是 provider++name 格式
                           const isSelected = configItem.name === highLevelConfig;
                           return (
                             <div
@@ -805,7 +912,7 @@ export default function AIConfigPage() {
                                 "group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer",
                                 isSelected ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/50 bg-card/50 hover:border-primary/20"
                               )}
-                              onClick={() => handleSetHighLevelConfig(configItem.name, configItem.provider)}
+                              onClick={() => handleSetHighLevelConfig(configItem.name)}
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <div className={cn(
@@ -815,7 +922,7 @@ export default function AIConfigPage() {
                                   <FileText className="w-4 h-4" />
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="text-sm font-medium truncate block">{configItem.name}</span>
+                                  <span className="text-sm font-medium truncate block">{configItem.config_name}</span>
                                   <div className="flex items-center gap-1.5 mt-0.5">
                                     <Badge
                                       variant="outline"
@@ -841,7 +948,7 @@ export default function AIConfigPage() {
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => { e.stopPropagation(); openEditDialog(configItem.name, configItem.provider); }}
+                                        onClick={(e) => { e.stopPropagation(); openEditDialog(configItem.config_name, configItem.provider); }}
                                       >
                                         <Settings className="w-3.5 h-3.5" />
                                       </Button>
@@ -854,7 +961,7 @@ export default function AIConfigPage() {
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(configItem.name, configItem.provider); }}
+                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(configItem.config_name, configItem.provider); }}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </Button>
@@ -888,6 +995,7 @@ export default function AIConfigPage() {
                     ) : (
                       <div className="space-y-2">
                         {allConfigsList.map((configItem) => {
+                          // configItem.name 是 provider++name 格式，lowLevelConfig 也是 provider++name 格式
                           const isSelected = configItem.name === lowLevelConfig;
                           return (
                             <div
@@ -896,7 +1004,7 @@ export default function AIConfigPage() {
                                 "group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer",
                                 isSelected ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/50 bg-card/50 hover:border-primary/20"
                               )}
-                              onClick={() => handleSetLowLevelConfig(configItem.name, configItem.provider)}
+                              onClick={() => handleSetLowLevelConfig(configItem.name)}
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <div className={cn(
@@ -906,7 +1014,7 @@ export default function AIConfigPage() {
                                   <FileText className="w-4 h-4" />
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="text-sm font-medium truncate block">{configItem.name}</span>
+                                  <span className="text-sm font-medium truncate block">{configItem.config_name}</span>
                                   <div className="flex items-center gap-1.5 mt-0.5">
                                     <Badge
                                       variant="outline"
@@ -932,7 +1040,7 @@ export default function AIConfigPage() {
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => { e.stopPropagation(); openEditDialog(configItem.name, configItem.provider); }}
+                                        onClick={(e) => { e.stopPropagation(); openEditDialog(configItem.config_name, configItem.provider); }}
                                       >
                                         <Settings className="w-3.5 h-3.5" />
                                       </Button>
@@ -945,7 +1053,7 @@ export default function AIConfigPage() {
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(configItem.name, configItem.provider); }}
+                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(configItem.config_name, configItem.provider); }}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </Button>

@@ -202,7 +202,8 @@ export default function AIScheduledTasksPage() {
       fetchTasks();
       fetchStats();
     } catch (err) {
-      toast.error(t('aiScheduledTasks.deleteFailed'));
+      const errorMsg = err instanceof Error ? err.message : '';
+      toast.error(errorMsg ? `${t('aiScheduledTasks.deleteFailed')}: ${errorMsg}` : t('aiScheduledTasks.deleteFailed'));
     }
   };
 

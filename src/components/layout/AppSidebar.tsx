@@ -1,4 +1,4 @@
-import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench, Sparkles, BookOpen, MessageSquare, History, TrendingUp, Clock } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench, Sparkles, BookOpen, MessageSquare, History, TrendingUp, Clock, Server } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -54,6 +54,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Store,
   Palette,
   User,
+  Server,
 };
 
 // 导航项配置
@@ -84,6 +85,7 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
     children: [
       { title: t('sidebar.basicConfig'), url: '/ai-config', icon: Cog },
       { title: t('sidebar.personaConfig'), url: '/persona-config', icon: User },
+      { title: t('sidebar.mcpConfig'), url: '/mcp-config', icon: Server },
       { title: t('sidebar.aiTools'), url: '/ai-tools', icon: Wrench },
       { title: t('sidebar.aiSkills'), url: '/ai-skills', icon: Sparkles },
       { title: t('sidebar.aiStatistics'), url: '/ai-statistics', icon: TrendingUp },
