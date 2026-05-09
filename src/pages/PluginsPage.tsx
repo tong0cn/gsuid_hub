@@ -242,12 +242,11 @@ export default function PluginsPage() {
 
   // Update original state when selected plugin detail changes
   useEffect(() => {
-    // 竞态条件检查：确保当前加载的插件与 selectedPlugin 匹配
-    if (!selectedPlugin || loadingPluginIdRef.current === null) return;
+    if (!selectedPlugin) return;
     
-    // 如果当前正在加载的插件ID与 selectedPlugin 的 ID 不匹配，说明已经有新的请求在执行
-    // 应该等待新请求完成，而不是用旧数据覆盖
-    if (loadingPluginIdRef.current !== selectedPlugin.id) {
+    // 如果有正在加载的请求且与当前选中的插件不匹配，跳过（等待新请求）
+    // 只有在没有正在加载的请求，或正在加载的请求就是当前选中的插件时，才更新状态
+    if (loadingPluginIdRef.current !== null && loadingPluginIdRef.current !== selectedPlugin.id) {
       return;
     }
     
