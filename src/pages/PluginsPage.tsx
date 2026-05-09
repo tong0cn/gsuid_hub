@@ -12,10 +12,21 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TabButtonGroup } from '@/components/ui/TabButtonGroup';
-import { Settings, Loader2, ChevronDown, Save, Server, LayoutGrid, Users, Shield, Filter, Zap, MessageSquare, Key, Command, Package } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Settings, Loader2, ChevronDown, Save, Server, LayoutGrid, Users, Shield, Filter, Zap, MessageSquare, Key, Command, Package, RotateCw, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfigField, ConfigFieldDefinition, ConfigValue, ConfigFieldType } from '@/components/config';
-import { pluginsApi, Plugin, ServiceConfig, SvItem, SvCommand, PluginConfigItem, PluginConfigGroup, PluginListItem, getPluginIconUrl } from '@/lib/api';
+import { pluginsApi, gitUpdateApi, Plugin, ServiceConfig, SvItem, SvCommand, PluginConfigItem, PluginConfigGroup, PluginListItem, getPluginIconUrl } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 // 带 fallback 的插件图标组件
@@ -96,6 +107,19 @@ export default function PluginsPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isSavingService, setIsSavingService] = useState(false);
+  const [isReloadingPlugin, setIsReloadingPlugin] = useState(false);
+
+  // 更新全部插件相关状态
+  const [updateAllDialogOpen, setUpdateAllDialogOpen] = useState(false);
+  const [updateAllPanelOpen, setUpdateAllPanelOpen] = useState(false);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  type PluginUpdateStatus = 'pending' | 'updating' | 'success' | 'failed';
+  interface PluginUpdateItem {
+    name: string;
+    status: PluginUpdateStatus;
+    message?: string;
+  }
+  const [pluginUpdateList, setPluginUpdateList] = useState<PluginUpdateItem[]>([]);
 
   // Track original state for change detection
   const [originalConfig, setOriginalConfig] = useState<Record<string, any>>({});
@@ -382,6 +406,73 @@ export default function PluginsPage() {
     }
   };
 
+  // 重载当前插件
+  const handleReloadPlugin = async () => {
+    if (!selectedPlugin) return;
+    setIsReloadingPlugin(true);
+    try {
+      const result = await pluginsApi.reloadPlugin(selectedPlugin.name);
+      if (result.status === 0) {
+        toast({ title: t('common.success'), description: t('plugins.reloadPluginSuccess', { name: selectedPlugin.name }) });
+      } else {
+        toast({ title: t('common.error'), description: result.msg, variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({
+        title: t('plugins.reloadPluginFailed', { name: selectedPlugin.name, error: '' }),
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    } finally {
+      setIsReloadingPlugin(false);
+    }
+  };
+
+  // 更新全部插件 - 打开确认对话框
+  const handleUpdateAllClick = () => {
+    setUpdateAllDialogOpen(true);
+  };
+
+  // 更新全部插件 - 开始执行
+  const handleUpdateAllConfirm = async () => {
+    setUpdateAllDialogOpen(false);
+    setUpdateAllPanelOpen(true);
+    setIsUpdatingAll(true);
+    
+    // 初始化所有插件状态为 pending
+    const initialList: PluginUpdateItem[] = pluginList.map(p => ({ name: p.name, status: 'pending' }));
+    setPluginUpdateList(initialList);
+
+    // 并行更新所有插件
+    const updatePromises = pluginList.map(async (plugin) => {
+      // 更新状态为 updating
+      setPluginUpdateList(prev => prev.map(p =>
+        p.name === plugin.name ? { ...p, status: 'updating' } : p
+      ));
+      
+      try {
+        // 使用 gitUpdateApi.forceUpdate 来更新单个插件
+        const result = await gitUpdateApi.forceUpdate(plugin.name);
+        if (result.status === 0) {
+          setPluginUpdateList(prev => prev.map(p =>
+            p.name === plugin.name ? { ...p, status: 'success', message: result.msg } : p
+          ));
+        } else {
+          setPluginUpdateList(prev => prev.map(p =>
+            p.name === plugin.name ? { ...p, status: 'failed', message: result.msg } : p
+          ));
+        }
+      } catch (error) {
+        setPluginUpdateList(prev => prev.map(p =>
+          p.name === plugin.name ? { ...p, status: 'failed', message: error instanceof Error ? error.message : String(error) } : p
+        ));
+      }
+    });
+
+    await Promise.all(updatePromises);
+    setIsUpdatingAll(false);
+  };
+
   return (
     <div className="space-y-6 flex-1 overflow-auto p-6 h-full flex flex-col">
       <div className="flex items-center justify-between">
@@ -393,6 +484,46 @@ export default function PluginsPage() {
             <h1 className="text-3xl font-bold tracking-tight">{t('plugins.title')}</h1>
             <p className="text-muted-foreground">{t('plugins.description')}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUpdateAllClick}
+                  disabled={isLoading || pluginList.length === 0}
+                  className="gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('plugins.updateAllPlugins')}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('plugins.updateAllPluginsDesc')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReloadPlugin}
+                  disabled={!selectedPlugin || isReloadingPlugin}
+                  className="gap-2"
+                >
+                  <RotateCw className={`w-4 h-4 ${isReloadingPlugin ? 'animate-spin' : ''}`} />
+                  {t('plugins.reloadPlugin')}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t('plugins.reloadPlugin')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -1026,6 +1157,87 @@ export default function PluginsPage() {
           <CardContent className="py-12 text-center text-muted-foreground">
             <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>请先选择要配置的插件</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 更新全部插件确认对话框 */}
+      <AlertDialog open={updateAllDialogOpen} onOpenChange={setUpdateAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('plugins.updateAllPlugins')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('plugins.updateAllPluginsConfirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUpdateAllConfirm}>
+              {t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 更新全部插件状态面板 */}
+      {updateAllPanelOpen && (
+        <Card className="glass-card">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                {t('plugins.updateAllPlugins')}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUpdateAllPanelOpen(false)}
+              >
+                {t('common.close')}
+              </Button>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('plugins.pluginSelection')}</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
+                    <TableHead>{t('common.error')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pluginUpdateList.map((plugin) => (
+                    <TableRow key={plugin.name}>
+                      <TableCell className="font-medium">{plugin.name}</TableCell>
+                      <TableCell>
+                        {plugin.status === 'pending' && (
+                          <Badge variant="secondary">{t('plugins.updatePending')}</Badge>
+                        )}
+                        {plugin.status === 'updating' && (
+                          <Badge variant="default" className="gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {t('plugins.updating')}
+                          </Badge>
+                        )}
+                        {plugin.status === 'success' && (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                            {t('plugins.updateSuccess')}
+                          </Badge>
+                        )}
+                        {plugin.status === 'failed' && (
+                          <Badge variant="destructive">
+                            {t('plugins.updateFailed')}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                        {plugin.message || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

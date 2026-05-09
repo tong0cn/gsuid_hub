@@ -17,6 +17,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   GitBranch,
   RefreshCw,
   RotateCcw,
@@ -32,6 +39,8 @@ import {
   MessageSquare,
   Link,
   Globe,
+  Loader2,
+  XCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -39,12 +48,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   gitUpdateApi,
   gitMirrorApi,
+  pluginsApi,
   GitPluginStatus,
   GitCommitInfo,
   GitCommitListResponse,
   GitPluginInfo,
   getPluginIconUrl,
 } from '@/lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const PAGE_SIZE = 20;
 
@@ -122,6 +133,8 @@ const CommitCard = memo(function CommitCard({
   isCheckingOut,
   onCheckout,
   t,
+  isLocalCurrent,
+  isRemoteLatest,
 }: {
   commit: GitCommitInfo;
   isCurrent: boolean;
@@ -129,21 +142,28 @@ const CommitCard = memo(function CommitCard({
   isCheckingOut: boolean;
   onCheckout: (commit: GitCommitInfo) => void;
   t: (key: string) => string;
+  isLocalCurrent?: boolean;
+  isRemoteLatest?: boolean;
 }) {
   return (
-    <Card className={`glass-card ${isCurrent ? 'border-primary/50 bg-primary/5' : ''}`}>
+    <Card className={`glass-card ${isLocalCurrent ? 'border-primary/50 bg-primary/5' : ''}`}>
       <CardContent className="p-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <Badge
-              variant={isCurrent ? 'default' : 'outline'}
+              variant="outline"
               className="font-mono text-xs whitespace-nowrap shrink-0"
             >
               {commit.short_hash}
             </Badge>
-            {isCurrent && (
-              <Badge variant="secondary" className="text-xs whitespace-nowrap shrink-0">
+            {isLocalCurrent && (
+              <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
                 {t('gitUpdate.currentVersion')}
+              </Badge>
+            )}
+            {isRemoteLatest && !isLocalCurrent && (
+              <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
+                {t('gitUpdate.localVersion')}
               </Badge>
             )}
           </div>
@@ -160,15 +180,15 @@ const CommitCard = memo(function CommitCard({
             </Button>
           )}
         </div>
-        <p className="text-sm font-medium break-all">{commit.message}</p>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <p className="text-sm font-medium break-words leading-relaxed">{commit.message}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <User className="w-3 h-3" />
-            {commit.author}
+            <User className="w-3 h-3 shrink-0" />
+            <span className="truncate max-w-[120px]">{commit.author}</span>
           </span>
           <span className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {commit.date}
+            <Calendar className="w-3 h-3 shrink-0" />
+            <span className="whitespace-nowrap">{commit.date}</span>
           </span>
         </div>
       </CardContent>
@@ -184,6 +204,8 @@ const CommitRow = memo(function CommitRow({
   isCheckingOut,
   onCheckout,
   t,
+  isLocalCurrent,
+  isRemoteLatest,
 }: {
   commit: GitCommitInfo;
   isCurrent: boolean;
@@ -191,20 +213,27 @@ const CommitRow = memo(function CommitRow({
   isCheckingOut: boolean;
   onCheckout: (commit: GitCommitInfo) => void;
   t: (key: string) => string;
+  isLocalCurrent?: boolean;
+  isRemoteLatest?: boolean;
 }) {
   return (
-    <tr className={`border-b border-border/50 ${isCurrent ? 'bg-primary/5' : ''}`}>
+    <tr className={`border-b border-border/50 ${isLocalCurrent ? 'bg-primary/5' : ''}`}>
       <td className="p-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
-            variant={isCurrent ? 'default' : 'outline'}
+            variant="outline"
             className="font-mono text-xs whitespace-nowrap"
           >
             {commit.short_hash}
           </Badge>
-          {isCurrent && (
-            <Badge variant="secondary" className="text-xs whitespace-nowrap">
+          {isLocalCurrent && (
+            <Badge variant="default" className="text-xs whitespace-nowrap">
               {t('gitUpdate.currentVersion')}
+            </Badge>
+          )}
+          {isRemoteLatest && !isLocalCurrent && (
+            <Badge variant="default" className="text-xs whitespace-nowrap">
+              {t('gitUpdate.localVersion')}
             </Badge>
           )}
         </div>
@@ -247,6 +276,24 @@ export default function GitUpdatePage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isForceUpdating, setIsForceUpdating] = useState(false);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  // 插件列表（来自 /api/plugins/list，包含实际运行版本）
+  const [pluginList, setPluginList] = useState<{ id: string; commit?: string }[]>([]);
+
+  // 重载当前插件状态
+  const [isReloadingPlugin, setIsReloadingPlugin] = useState(false);
+  const [reloadDialogOpen, setReloadDialogOpen] = useState(false);
+
+  // 更新全部插件相关状态
+  const [updateAllDialogOpen, setUpdateAllDialogOpen] = useState(false);
+  const [updateAllPanelOpen, setUpdateAllPanelOpen] = useState(false);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  type PluginUpdateStatus = 'pending' | 'updating' | 'success' | 'failed';
+  interface PluginUpdateItem {
+    name: string;
+    status: PluginUpdateStatus;
+    message?: string;
+  }
+  const [pluginUpdateList, setPluginUpdateList] = useState<PluginUpdateItem[]>([]);
 
   // Use ref to track selected plugin without causing re-renders in callbacks
   const selectedPluginRef = useRef(selectedPlugin);
@@ -258,6 +305,7 @@ export default function GitUpdatePage() {
     commit: GitCommitInfo | null;
   }>({ open: false, commit: null });
   const [forceUpdateDialog, setForceUpdateDialog] = useState(false);
+  const [updateDialog, setUpdateDialog] = useState(false);
   const [gitMirrorOpen, setGitMirrorOpen] = useState(false);
 
   // Fetch all plugin statuses + icons (runs once on mount, with cache)
@@ -330,6 +378,22 @@ export default function GitUpdatePage() {
       }
     }
     loadMirrorInfo();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch plugin list to get actual running commit (from /api/plugins/list)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPluginList() {
+      try {
+        const data = await pluginsApi.getPluginList();
+        if (cancelled) return;
+        setPluginList(data);
+      } catch (error) {
+        console.error('Failed to fetch plugin list:', error);
+      }
+    }
+    loadPluginList();
     return () => { cancelled = true; };
   }, []);
 
@@ -438,24 +502,77 @@ export default function GitUpdatePage() {
     }
   };
 
-  // Handle force update
-  const handleForceUpdate = async () => {
+  // Handle normal update
+  const handleUpdate = async () => {
     if (!selectedPlugin) return;
+    setUpdateDialog(false);
     try {
       setIsForceUpdating(true);
-      const result = await gitUpdateApi.forceUpdate(selectedPlugin);
-      toast({
-        title: t('common.success'),
-        description: t('gitUpdate.forceUpdateSuccess', {
-          hash: result.current_commit?.short_hash || '',
-        }),
-      });
+      const result = await gitUpdateApi.update(selectedPlugin);
+      if (result.status === 0) {
+        toast({
+          title: t('common.success'),
+          description: t('gitUpdate.updateSuccess', {
+            hash: result.data?.current_commit?.short_hash || '',
+          }),
+        });
+      } else {
+        toast({
+          title: t('common.error'),
+          description: result.msg || t('gitUpdate.updateFailed'),
+          variant: 'destructive',
+        });
+      }
       // 清除缓存并刷新
       clearCommitsCache(selectedPlugin);
       localStorage.removeItem(GIT_STATUS_CACHE_KEY);
       const data = await gitUpdateApi.getRemoteCommits(selectedPlugin);
       setCommitsData(data);
       setCachedData(GIT_COMMITS_CACHE_PREFIX + selectedPlugin, data);
+      // 刷新插件列表以获取最新的运行版本
+      const pluginListData = await pluginsApi.getPluginList();
+      setPluginList(pluginListData);
+    } catch (error) {
+      console.error('Update failed:', error);
+      toast({
+        title: t('common.error'),
+        description: t('gitUpdate.updateFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsForceUpdating(false);
+    }
+  };
+
+  // Handle force update
+  const handleForceUpdate = async () => {
+    if (!selectedPlugin) return;
+    try {
+      setIsForceUpdating(true);
+      const result = await gitUpdateApi.forceUpdate(selectedPlugin);
+      if (result.status === 0) {
+        toast({
+          title: t('common.success'),
+          description: t('gitUpdate.forceUpdateSuccess', {
+            hash: result.data?.current_commit?.short_hash || '',
+          }),
+        });
+      } else {
+        toast({
+          title: t('common.error'),
+          description: result.msg || t('gitUpdate.forceUpdateFailed'),
+          variant: 'destructive',
+        });
+      }
+      // 清除缓存并刷新
+      clearCommitsCache(selectedPlugin);
+      localStorage.removeItem(GIT_STATUS_CACHE_KEY);
+      const data = await gitUpdateApi.getRemoteCommits(selectedPlugin);
+      setCommitsData(data);
+      setCachedData(GIT_COMMITS_CACHE_PREFIX + selectedPlugin, data);
+      // 刷新插件列表以获取最新的运行版本
+      const pluginListData = await pluginsApi.getPluginList();
+      setPluginList(pluginListData);
     } catch (error) {
       console.error('Force update failed:', error);
       toast({
@@ -491,28 +608,82 @@ export default function GitUpdatePage() {
     setCheckoutDialog({ open: true, commit });
   }, []);
 
-  // Handle update all plugins
-  const handleUpdateAll = async () => {
-    try {
-      setIsForceUpdating(true);
-      await gitUpdateApi.updateAll();
-      toast({
-        title: t('common.success'),
-        description: t('gitUpdate.updateAllSuccess'),
+  // Handle update all plugins - 打开确认对话框
+  const handleUpdateAllClick = () => {
+    setUpdateAllDialogOpen(true);
+  };
+
+  // 更新全部插件 - 开始执行
+  const handleUpdateAllConfirm = async () => {
+    setUpdateAllDialogOpen(false);
+    // 延迟打开面板，等待 AlertDialog 关闭动画完成
+    setTimeout(async () => {
+      setUpdateAllPanelOpen(true);
+      setIsUpdatingAll(true);
+      
+      // 初始化所有插件状态为 pending
+      const initialList: PluginUpdateItem[] = plugins.filter(p => p.is_git_repo).map(p => ({ name: p.name, status: 'pending' }));
+      setPluginUpdateList(initialList);
+
+      // 并行更新所有插件
+      const updatePromises = plugins.filter(p => p.is_git_repo).map(async (plugin) => {
+        // 更新状态为 updating
+        setPluginUpdateList(prev => prev.map(p =>
+          p.name === plugin.name ? { ...p, status: 'updating' } : p
+        ));
+        
+        try {
+          const result = await gitUpdateApi.update(plugin.name);
+          if (result.data?.success === true) {
+            setPluginUpdateList(prev => prev.map(p =>
+              p.name === plugin.name ? { ...p, status: 'success', message: result.data?.message || result.msg } : p
+            ));
+          } else {
+            setPluginUpdateList(prev => prev.map(p =>
+              p.name === plugin.name ? { ...p, status: 'failed', message: result.data?.message || result.msg } : p
+            ));
+          }
+        } catch (error) {
+          setPluginUpdateList(prev => prev.map(p =>
+            p.name === plugin.name ? { ...p, status: 'failed', message: error instanceof Error ? error.message : String(error) } : p
+          ));
+        }
       });
-      // 清除所有缓存并刷新
+
+      await Promise.all(updatePromises);
+      setIsUpdatingAll(false);
+      // 清除缓存并刷新
       clearCommitsCache();
-      await handleRefresh();
+      handleRefresh();
+    }, 0);
+  };
+
+  // 重载当前插件 - 打开确认对话框
+  const handleReloadPlugin = () => {
+    if (!selectedPlugin) return;
+    setReloadDialogOpen(true);
+  };
+
+  // 重载当前插件 - 确认执行
+  const handleReloadPluginConfirm = async () => {
+    if (!selectedPlugin) return;
+    setReloadDialogOpen(false);
+    setIsReloadingPlugin(true);
+    try {
+      const result = await pluginsApi.reloadPlugin(selectedPlugin);
+      if (result.status === 0) {
+        toast({ title: t('common.success'), description: t('plugins.reloadPluginSuccess', { name: selectedPlugin }) });
+      } else {
+        toast({ title: t('common.error'), description: result.msg, variant: 'destructive' });
+      }
     } catch (error) {
-      console.error('Failed to update all plugins:', error);
       toast({
-        title: t('common.error'),
-        description: t('gitUpdate.updateAllFailed'),
-        variant: 'destructive',
+        title: t('plugins.reloadPluginFailed', { name: selectedPlugin, error: '' }),
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
       });
     } finally {
-      setIsForceUpdating(false);
-      setForceUpdateDialog(false);
+      setIsReloadingPlugin(false);
     }
   };
 
@@ -540,13 +711,24 @@ export default function GitUpdatePage() {
           </Button>
           <Button
             variant="default"
-            onClick={handleUpdateAll}
+            onClick={handleUpdateAllClick}
             disabled={isLoadingStatus || isForceUpdating}
             className="gap-2 self-start sm:self-auto"
           >
             <Download className="w-4 h-4" />
             {t('gitUpdate.updateAll')}
           </Button>
+          {selectedPlugin && selectedPlugin.toLowerCase() !== 'gsuid_core' && !selectedPlugin.startsWith('_') && (
+            <Button
+              variant="outline"
+              onClick={handleReloadPlugin}
+              disabled={!selectedPlugin || isReloadingPlugin}
+              className="gap-2 self-start sm:self-auto"
+            >
+              <RotateCcw className={`w-4 h-4 ${isReloadingPlugin ? 'animate-spin' : ''}`} />
+              {t('plugins.reloadPlugin')}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={handleRefresh}
@@ -581,69 +763,69 @@ export default function GitUpdatePage() {
 
       {/* Current Status */}
       {currentPlugin && currentPlugin.current_commit && (
-        <Card className="glass-card">
+        <Card className="glass-card overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-primary" />
               {t('gitUpdate.currentStatus')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <CardContent className="min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <GitBranch className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{t('gitUpdate.branch')}:</span>
-                <Badge variant="secondary" className="whitespace-nowrap">{currentPlugin.branch}</Badge>
+                <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{t('gitUpdate.branch')}:</span>
+                <span className="truncate">{currentPlugin.branch}</span>
               </div>
               <div className="flex items-center gap-2 min-w-0">
                 <GitCommit className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{t('gitUpdate.commit')}:</span>
-                <Badge variant="outline" className="font-mono whitespace-nowrap">
-                  {currentPlugin.current_commit.short_hash}
-                </Badge>
+                <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{t('gitUpdate.commit')}:</span>
+                <span className="truncate font-mono text-sm">{currentPlugin.current_commit.short_hash}</span>
               </div>
               <div className="flex items-center gap-2 min-w-0">
                 <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{t('gitUpdate.author')}:</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{t('gitUpdate.author')}:</span>
                 <span className="text-sm truncate">{currentPlugin.current_commit.author}</span>
               </div>
               <div className="flex items-center gap-2 min-w-0">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{t('gitUpdate.date')}:</span>
-                <span className="text-sm whitespace-nowrap">{currentPlugin.current_commit.date}</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{t('gitUpdate.date')}:</span>
+                <span className="text-sm truncate">{currentPlugin.current_commit.date}</span>
               </div>
             </div>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="flex items-start gap-2 min-w-0 col-span-2">
-                <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="text-sm">{currentPlugin.current_commit.message}</span>
+            <div className="mt-3 pt-3 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm break-words leading-relaxed truncate">{currentPlugin.current_commit.message}</span>
+                </div>
+                {currentMirrorInfo?.remote_url && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Link className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-mono whitespace-nowrap"
+                      title={currentMirrorInfo.remote_url}
+                    >
+                      {currentMirrorInfo.remote_url.replace(/^https?:\/\//, '').split('/').slice(-2).join('/')}
+                    </Badge>
+                  </div>
+                )}
+                {currentMirrorInfo?.remote_url && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+                    {(() => {
+                      const badge = getMirrorBadge(currentMirrorInfo.mirror || 'unknown', currentMirrorInfo.remote_url, t);
+                      return (
+                        <Badge variant="outline" className={`text-xs whitespace-nowrap ${badge.className}`}>
+                          {badge.icon}
+                          <span className="ml-1">{badge.label}</span>
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
-              {currentMirrorInfo?.remote_url && (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Link className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-mono whitespace-nowrap"
-                    title={currentMirrorInfo.remote_url}
-                  >
-                    {currentMirrorInfo.remote_url.replace(/^https?:\/\//, '').split('/').slice(-2).join('/')}
-                  </Badge>
-                </div>
-              )}
-              {currentMirrorInfo?.remote_url && (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
-                  {(() => {
-                    const badge = getMirrorBadge(currentMirrorInfo.mirror || 'unknown', currentMirrorInfo.remote_url, t);
-                    return (
-                      <Badge variant="outline" className={`text-xs whitespace-nowrap ${badge.className}`}>
-                        {badge.icon}
-                        <span className="ml-1">{badge.label}</span>
-                      </Badge>
-                    );
-                  })()}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -651,15 +833,41 @@ export default function GitUpdatePage() {
 
       {/* Commit List */}
       <Card className="glass-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <ArrowDownToLine className="w-5 h-5 text-primary" />
-            {t('gitUpdate.remoteCommits')}
-          </CardTitle>
-          <CardDescription>
-            {t('gitUpdate.detachedHeadWarning')}
-          </CardDescription>
-        </CardHeader>
+        <div className="px-4 sm:px-6 pt-10 pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2 mb-1">
+                <ArrowDownToLine className="w-5 h-5 text-primary" />
+                {t('gitUpdate.remoteCommits')}
+              </CardTitle>
+              <CardDescription>
+                {t('gitUpdate.detachedHeadWarning')}
+              </CardDescription>
+            </div>
+            <div className="flex flex-row gap-2 shrink-0 justify-end items-end">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setUpdateDialog(true)}
+                disabled={isForceUpdating || !selectedPlugin || isLoadingStatus}
+                className="gap-1 h-8"
+              >
+                <Download className={`w-3 h-3 ${isForceUpdating ? 'animate-spin' : ''}`} />
+                {t('gitUpdate.update')}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setForceUpdateDialog(true)}
+                disabled={isForceUpdating || !selectedPlugin || isLoadingStatus}
+                className="gap-1 h-8"
+              >
+                <Download className={`w-3 h-3 ${isForceUpdating ? 'animate-spin' : ''}`} />
+                {t('gitUpdate.forceUpdate')}
+              </Button>
+            </div>
+          </div>
+        </div>
         <CardContent className="p-0 sm:px-6 sm:pb-6">
           {isLoadingCommits ? (
             <div className="space-y-3 p-4 sm:p-0">
@@ -682,6 +890,8 @@ export default function GitUpdatePage() {
             <div className="space-y-3 p-4">
               {(() => {
                 const currentIdx = allCommits.findIndex(c => c.hash === commitsData.current_hash);
+                const runningPlugin = pluginList.find(p => p.id.toLowerCase() === selectedPlugin.toLowerCase());
+                const runningCommit = runningPlugin?.commit;
                 return displayedCommits.map((commit, index) => (
                   <CommitCard
                     key={commit.hash}
@@ -691,6 +901,8 @@ export default function GitUpdatePage() {
                     isCheckingOut={isCheckingOut}
                     onCheckout={handleCheckoutClick}
                     t={t}
+                    isLocalCurrent={runningCommit ? commit.short_hash === runningCommit : false}
+                    isRemoteLatest={commit.hash === commitsData.current_hash}
                   />
                 ));
               })()}
@@ -709,8 +921,8 @@ export default function GitUpdatePage() {
             </div>
           ) : (
             /* Desktop: Table layout */
-            <div>
-              <table className="w-full caption-bottom text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full caption-bottom text-sm min-w-[640px]">
                 <thead className="sticky top-0 bg-background z-10">
                   <tr className="border-b border-border/50">
                     <th className="h-10 px-3 text-left font-medium text-muted-foreground w-28 whitespace-nowrap">{t('gitUpdate.commit')}</th>
@@ -723,6 +935,8 @@ export default function GitUpdatePage() {
                 <tbody>
                   {(() => {
                     const currentIdx = allCommits.findIndex(c => c.hash === commitsData.current_hash);
+                    const runningPlugin = pluginList.find(p => p.id.toLowerCase() === selectedPlugin.toLowerCase());
+                    const runningCommit = runningPlugin?.commit;
                     return displayedCommits.map((commit, index) => (
                       <CommitRow
                         key={commit.hash}
@@ -732,6 +946,8 @@ export default function GitUpdatePage() {
                         isCheckingOut={isCheckingOut}
                         onCheckout={handleCheckoutClick}
                         t={t}
+                        isLocalCurrent={runningCommit ? commit.short_hash === runningCommit : false}
+                        isRemoteLatest={commit.hash === commitsData.current_hash}
                       />
                     ));
                   })()}
@@ -756,19 +972,6 @@ export default function GitUpdatePage() {
         </CardContent>
       </Card>
 
-      {/* Force Update Button */}
-      <div className="flex justify-center sm:justify-end">
-        <Button
-          variant="destructive"
-          onClick={() => setForceUpdateDialog(true)}
-          disabled={isForceUpdating || !selectedPlugin || isLoadingStatus}
-          className="gap-2 w-full sm:w-auto"
-        >
-          <Download className={`w-4 h-4 ${isForceUpdating ? 'animate-spin' : ''}`} />
-          {t('gitUpdate.forceUpdate')}
-        </Button>
-      </div>
-
       {/* Checkout Confirmation Dialog */}
       <AlertDialog
         open={checkoutDialog.open}
@@ -782,12 +985,12 @@ export default function GitUpdatePage() {
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
               {t('gitUpdate.checkoutConfirmTitle')}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('gitUpdate.checkoutConfirmDesc', {
-                plugin: getPluginDisplayName(selectedPlugin),
-                hash: checkoutDialog.commit?.short_hash || '',
-                message: checkoutDialog.commit?.message || '',
-              })}
+            <AlertDialogDescription className="text-left space-y-2">
+              <div>确认将 <strong>{getPluginDisplayName(selectedPlugin)}</strong> 回退到 commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{checkoutDialog.commit?.short_hash || ''}</code>？</div>
+              <div className="text-muted-foreground">
+                commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{checkoutDialog.commit?.short_hash || ''}</code>：<span className="font-medium">{checkoutDialog.commit?.message || ''}</span>
+              </div>
+              <div className="text-yellow-600 dark:text-yellow-500 font-medium">⚠️ 注意：切换将执行 <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">git reset --hard</code>，如有本地代码修改将移除，此操作不可逆。</div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -800,6 +1003,36 @@ export default function GitUpdatePage() {
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isCheckingOut ? t('gitUpdate.loading') : t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Update Confirmation Dialog */}
+      <AlertDialog open={updateDialog} onOpenChange={setUpdateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-primary" />
+              {t('gitUpdate.updateConfirmTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left space-y-2">
+              <div>确认将 <strong>{getPluginDisplayName(selectedPlugin)}</strong> 更新到 commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{commitsData?.current_hash || ''}</code>？</div>
+              <div className="text-muted-foreground">
+                commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{commitsData?.current_hash || ''}</code>：<span className="font-medium">{commitsData?.commits[0]?.message || ''}</span>
+              </div>
+              <div className="text-yellow-600 dark:text-yellow-500 font-medium">⚠️ 注意：更新将执行 <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">git pull</code>，如有本地代码修改将移除，此操作不可逆。</div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isForceUpdating}>
+              {t('common.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUpdate}
+              disabled={isForceUpdating}
+            >
+              {isForceUpdating ? t('gitUpdate.loading') : t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -829,6 +1062,108 @@ export default function GitUpdatePage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isForceUpdating ? t('gitUpdate.loading') : t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 更新全部插件确认对话框 */}
+      <AlertDialog open={updateAllDialogOpen} onOpenChange={setUpdateAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('gitUpdate.updateAll')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('plugins.updateAllPluginsConfirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUpdateAllConfirm}>
+              {t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 更新全部插件状态面板 - 弹窗 */}
+      <Dialog open={updateAllPanelOpen} onOpenChange={setUpdateAllPanelOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              {t('gitUpdate.updateAll')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="border rounded-lg overflow-auto flex-1">
+            <Table className="min-w-[400px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('gitUpdate.selectPlugin')}</TableHead>
+                  <TableHead>{t('common.status')}</TableHead>
+                  <TableHead>{t('common.error')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pluginUpdateList.map((plugin) => (
+                  <TableRow key={plugin.name}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <PluginIcon pluginName={plugin.name} className="w-5 h-5" />
+                        <span>{plugin.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {plugin.status === 'pending' && (
+                        <Badge variant="secondary">{t('plugins.updatePending')}</Badge>
+                      )}
+                      {plugin.status === 'updating' && (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm px-2.5 py-0.5 rounded-full border border-transparent bg-primary/10 text-primary">
+                          <Loader2 className="w-3 h-3 animate-spin [&>*]:!text-primary" />
+                          {t('plugins.updating')}
+                        </span>
+                      )}
+                      {plugin.status === 'success' && (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm px-2.5 py-0.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-600">
+                          <CheckCircle2 className="w-3 h-3 [&>*]:!text-green-600 [&>path]:!stroke-green-600" />
+                          {t('plugins.updateSuccess')}
+                        </span>
+                      )}
+                      {plugin.status === 'failed' && (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm px-2.5 py-0.5 rounded-full border border-transparent bg-destructive text-white">
+                          <XCircle className="w-3 h-3 [&>*]:!text-white [&>circle]:!stroke-white [&>path]:!stroke-white" />
+                          {t('plugins.updateFailed')}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                      {plugin.message || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateAllPanelOpen(false)}>
+              {t('common.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 重载当前插件确认对话框 */}
+      <AlertDialog open={reloadDialogOpen} onOpenChange={setReloadDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('plugins.reloadPlugin')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('plugins.reloadPluginConfirm', { name: selectedPlugin || '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReloadPluginConfirm}>
+              {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

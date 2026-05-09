@@ -453,6 +453,7 @@ export interface PluginListItem {
   enabled: boolean;
   status: string;
   icon?: string;
+  commit?: string;
 }
 
 // ===================
@@ -516,6 +517,10 @@ export const pluginsApi = {
 
   updateSvConfig: (pluginName: string, svName: string, config: Record<string, unknown>) =>
     api.post<{ status: number; msg: string }>(`/api/plugins/${pluginName}/sv/${svName}`, config),
+
+  // 重新加载插件
+  reloadPlugin: (pluginName: string) =>
+    api.post<{ status: number; msg: string }>(`/api/plugins/${pluginName}/reload`),
 };
 
 /**
@@ -2344,9 +2349,13 @@ export const gitUpdateApi = {
   checkout: (pluginName: string, commitHash: string) =>
     api.post<GitCheckoutResponse>(`/api/git-update/checkout/${encodeURIComponent(pluginName)}`, { commit_hash: commitHash }),
 
-  // 强制更新
+  // 普通更新（git fetch + git pull）
+  update: (pluginName: string) =>
+    api.post<ApiResponse<GitForceUpdateResponse>>(`/api/git-update/update/${encodeURIComponent(pluginName)}`),
+
+  // 强制更新（git reset --hard + git pull）
   forceUpdate: (pluginName: string) =>
-    api.post<GitForceUpdateResponse>(`/api/git-update/force-update/${encodeURIComponent(pluginName)}`),
+    api.post<ApiResponse<GitForceUpdateResponse>>(`/api/git-update/force-update/${encodeURIComponent(pluginName)}`),
 
   // 更新全部插件
   updateAll: () =>
