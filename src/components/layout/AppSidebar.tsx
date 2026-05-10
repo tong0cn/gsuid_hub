@@ -1,4 +1,4 @@
-import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench, Sparkles, BookOpen, MessageSquare, History, TrendingUp, Clock, Server, GitBranch, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, FileText, LogOut, Palette, Terminal, Calendar, Store, Cpu, HardDrive, PanelLeftClose, PanelLeft, Cog, Power, RotateCw, Globe, User, Brain, ChevronDown, ChevronRight, Wrench, Sparkles, BookOpen, MessageSquare, History, TrendingUp, Clock, Server, GitBranch, Image as ImageIcon, ScrollText } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -96,7 +96,8 @@ const getNavItems = (t: (key: string) => string): NavItem[] => [
       { title: t('sidebar.aiMeme'), url: '/ai-meme', icon: ImageIcon },
       { title: t('sidebar.aiMemory'), url: '/ai-memory', icon: Brain },
       { title: t('sidebar.systemPrompt'), url: '/system-prompt', icon: MessageSquare },
-      { title: t('sidebar.sessionManagement'), url: '/session-management', icon: History }
+      { title: t('sidebar.sessionManagement'), url: '/session-management', icon: History },
+      { title: t('sidebar.aiHistory'), url: '/ai-history', icon: ScrollText }
     ]
   },
   { title: t('sidebar.plugins'), url: '/plugins', icon: Settings },

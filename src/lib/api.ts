@@ -2516,3 +2516,113 @@ export const memeApi = {
   getStats: () =>
     api.get<MemeStatsData>('/api/meme/stats'),
 };
+
+// ===================
+// AI Session Logs API - /api/ai/session_logs
+// ===================
+
+export type SessionLogEntryType =
+  | 'session_created'
+  | 'session_ended'
+  | 'system_prompt'
+  | 'run_start'
+  | 'run_end'
+  | 'user_input'
+  | 'thinking'
+  | 'tool_call'
+  | 'tool_return'
+  | 'text_output'
+  | 'result'
+  | 'token_usage'
+  | 'error'
+  | 'node_transition';
+
+export interface SessionLogEntry {
+  type: SessionLogEntryType;
+  timestamp: number;
+  data: Record<string, unknown>;
+}
+
+export interface SessionLogSummary {
+  file_name: string;
+  session_id: string;
+  session_uuid: string;
+  persona_name: string;
+  create_by: string;
+  created_at: number;
+  created_at_str: string;
+  updated_at: number;
+  ended_at: number | null;
+  ended_at_str: string | null;
+  duration_seconds: number;
+  entry_count: number;
+  is_active: boolean;
+  source: 'memory' | 'disk';
+  type_counts: Record<string, number>;
+}
+
+export interface SessionLogListResponse {
+  items: SessionLogSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SessionLogDetail {
+  session_id: string;
+  session_uuid: string;
+  persona_name: string;
+  create_by: string;
+  created_at: number;
+  updated_at: number;
+  ended_at: number | null;
+  entry_count: number;
+  entries: SessionLogEntry[];
+}
+
+export interface SessionLogStatsOverview {
+  total_files: number;
+  today_count: number;
+  active_files: number;
+  memory_active_sessions: number;
+  create_by_distribution: Record<string, number>;
+  log_path: string;
+}
+
+export const aiSessionLogsApi = {
+  // 获取统一日志列表（合并内存活跃 + 磁盘持久化）
+  getLogs: (params: {
+    session_id?: string;
+    create_by?: string;
+    persona_name?: string;
+    is_active?: boolean;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const query = new URLSearchParams();
+    if (params.session_id) query.set('session_id', params.session_id);
+    if (params.create_by) query.set('create_by', params.create_by);
+    if (params.persona_name) query.set('persona_name', params.persona_name);
+    if (params.is_active !== undefined) query.set('is_active', String(params.is_active));
+    if (params.date_from) query.set('date_from', params.date_from);
+    if (params.date_to) query.set('date_to', params.date_to);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    if (params.offset !== undefined) query.set('offset', String(params.offset));
+    const queryStr = query.toString();
+    return api.get<SessionLogListResponse>(`/api/ai/session_logs${queryStr ? `?${queryStr}` : ''}`);
+  },
+
+  // 获取日志详情（按 session_id + session_uuid 精确定位）
+  getLogDetail: (sessionId: string, sessionUuid: string) =>
+    api.get<SessionLogDetail>(`/api/ai/session_logs/${encodeURIComponent(sessionId)}/${encodeURIComponent(sessionUuid)}/detail`),
+
+  // 按文件名读取磁盘日志（调试用）
+  getFileLog: (fileName: string) =>
+    api.get<SessionLogDetail>(`/api/ai/session_logs/file/${encodeURIComponent(fileName)}`),
+
+  // 获取日志统计概览
+  getStatsOverview: () =>
+    api.get<SessionLogStatsOverview>('/api/ai/session_logs/stats/overview'),
+};
