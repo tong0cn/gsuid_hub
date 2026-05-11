@@ -919,7 +919,7 @@ export default function PersonaConfigPage() {
               <Globe className="w-3 h-3 text-primary/60" />
               <Label className="text-[10px] text-muted-foreground leading-none">{t('personaConfig.enableScope')}</Label>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-nowrap justify-center gap-2">
               {SCOPE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -927,14 +927,14 @@ export default function PersonaConfigPage() {
                   onClick={() => handleScopeChange(persona.name, option.value)}
                   disabled={isSavingConfig}
                   className={cn(
-                    'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all',
-                    'border',
+                    'shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all',
+                    'border whitespace-nowrap',
                     scope === option.value
                       ? 'bg-primary/15 text-primary border-primary/40 shadow-sm'
                       : 'bg-transparent text-muted-foreground border-border/30 hover:bg-muted/30 hover:border-border/50'
                   )}
                 >
-                  <span className="w-3 h-3 flex items-center justify-center">{option.icon}</span>
+                  <span className="w-3 h-3 flex items-center justify-center shrink-0">{option.icon}</span>
                   <span>{t(`personaConfig.scope${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`)}</span>
                 </button>
               ))}
@@ -1174,7 +1174,7 @@ export default function PersonaConfigPage() {
           </div>
         </>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
           {personaCards.map(renderPersonaCard)}
         </div>
       )}

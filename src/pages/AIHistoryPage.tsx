@@ -104,36 +104,36 @@ function getEntryTypeLabel(type: SessionLogEntryType, t: (key: string) => string
 
 function getEntryTypeIcon(type: SessionLogEntryType) {
   switch (type) {
-    case 'session_created': return <Clock className="w-3 h-3" />;
-    case 'session_ended': return <CheckCircle className="w-3 h-3" />;
-    case 'system_prompt': return <Shield className="w-3 h-3" />;
-    case 'run_start': return <Clock className="w-3 h-3" />;
-    case 'run_end': return <CheckCircle className="w-3 h-3" />;
-    case 'user_input': return <MessageSquare className="w-3 h-3" />;
-    case 'thinking': return <Lightbulb className="w-3 h-3" />;
-    case 'tool_call': return <Wrench className="w-3 h-3" />;
-    case 'tool_return': return <CheckCircle className="w-3 h-3" />;
-    case 'text_output': return <MessageSquare className="w-3 h-3" />;
-    case 'result': return <CheckCircle className="w-3 h-3" />;
-    case 'token_usage': return <BarChart3 className="w-3 h-3" />;
-    case 'error': return <XOctagon className="w-3 h-3" />;
-    case 'node_transition': return <GitBranch className="w-3 h-3" />;
-    default: return <FileText className="w-3 h-3" />;
+    case 'session_created': return <Clock className="w-4 h-4" />;
+    case 'session_ended': return <CheckCircle className="w-4 h-4" />;
+    case 'system_prompt': return <Shield className="w-4 h-4" />;
+    case 'run_start': return <Clock className="w-4 h-4" />;
+    case 'run_end': return <CheckCircle className="w-4 h-4" />;
+    case 'user_input': return <MessageSquare className="w-4 h-4" />;
+    case 'thinking': return <Lightbulb className="w-4 h-4" />;
+    case 'tool_call': return <Wrench className="w-4 h-4" />;
+    case 'tool_return': return <CheckCircle className="w-4 h-4" />;
+    case 'text_output': return <MessageSquare className="w-4 h-4" />;
+    case 'result': return <CheckCircle className="w-4 h-4" />;
+    case 'token_usage': return <BarChart3 className="w-4 h-4" />;
+    case 'error': return <XOctagon className="w-4 h-4" />;
+    case 'node_transition': return <GitBranch className="w-4 h-4" />;
+    default: return <FileText className="w-4 h-4" />;
   }
 }
 
 function getEntryTypeColor(type: SessionLogEntryType): string {
   switch (type) {
-    case 'user_input': return 'bg-primary text-primary-foreground';
-    case 'text_output': return 'bg-indigo-500 text-white';
-    case 'thinking': return 'bg-amber-500/20 text-amber-600';
-    case 'tool_call': return 'bg-orange-500/20 text-orange-600';
-    case 'tool_return': return 'bg-teal-500/20 text-teal-600';
-    case 'error': return 'bg-red-500/20 text-red-600';
-    case 'token_usage': return 'bg-cyan-500/20 text-cyan-600';
-    case 'system_prompt': return 'bg-purple-500/20 text-purple-600';
-    case 'node_transition': return 'bg-pink-500/20 text-pink-600';
-    default: return 'bg-muted text-muted-foreground';
+    case 'user_input': return 'text-primary';
+    case 'text_output': return 'text-indigo-500';
+    case 'thinking': return 'text-amber-500';
+    case 'tool_call': return 'text-orange-500';
+    case 'tool_return': return 'text-teal-500';
+    case 'error': return 'text-red-500';
+    case 'token_usage': return 'text-cyan-500';
+    case 'system_prompt': return 'text-purple-500';
+    case 'node_transition': return 'text-pink-500';
+    default: return 'text-muted-foreground';
   }
 }
 
@@ -177,12 +177,9 @@ function TimelineNode({ type, isLast }: { type: SessionLogEntryType; isLast: boo
   return (
     <div className="relative flex flex-col items-center">
       {!isLast && (
-        <div className="absolute top-5 left-1/2 -translate-x-1/2 w-px h-[calc(100%+12px)] bg-border/60" />
+        <div className="absolute top-[16px] left-1/2 -translate-x-1/2 w-px h-[calc(100%+14px)] bg-border/50" />
       )}
-      <div className={cn(
-        "w-5 h-5 rounded-full flex items-center justify-center z-10 shrink-0",
-        getEntryTypeColor(type)
-      )}>
+      <div className={cn("shrink-0 z-10", getEntryTypeColor(type))}>
         {getEntryTypeIcon(type)}
       </div>
     </div>
@@ -302,15 +299,19 @@ function TimelineEntry({ entry, t, personaName, isLast }: {
           <div className="flex items-center gap-2 mb-1">
             <Avatar className="w-5 h-5">
               <AvatarImage src={avatarUrl} alt={personaName} />
-              <AvatarFallback className="bg-indigo-500/10 text-indigo-600 text-[10px]">
-                <Bot className="w-3 h-3" />
+              <AvatarFallback className="bg-indigo-500/10 text-indigo-600">
+                <Bot className="w-3.5 h-3.5" />
               </AvatarFallback>
             </Avatar>
             <span className="text-xs font-medium text-indigo-600">{personaName}</span>
             <span className="text-[10px] text-muted-foreground">{time}</span>
           </div>
           <div className="bg-muted rounded-2xl rounded-tl-sm px-3 py-2 sm:px-4 sm:py-2.5 text-sm shadow-sm border border-border/50 block sm:inline-block sm:max-w-[85%] overflow-hidden">
-            <pre className="whitespace-pre-wrap font-sans leading-relaxed break-words [overflow-wrap:anywhere]">{content}</pre>
+            {content ? (
+              <pre className="whitespace-pre-wrap font-sans leading-relaxed break-words [overflow-wrap:anywhere]">{content}</pre>
+            ) : (
+              <p className="italic text-muted-foreground/60">Agent没有任何回应</p>
+            )}
           </div>
         </div>
       </div>
@@ -322,7 +323,7 @@ function TimelineEntry({ entry, t, personaName, isLast }: {
     return (
       <div className="flex gap-3">
         <TimelineNode type={type} isLast={isLast} />
-        <div className="flex-1 min-w-0 pb-5 pt-0.5">
+        <div className="flex-1 min-w-0 pb-5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] text-muted-foreground">{label}</span>
             <span className="text-[10px] text-muted-foreground/50">{time}</span>
@@ -353,8 +354,11 @@ function TimelineEntry({ entry, t, personaName, isLast }: {
   return (
     <div className="flex gap-3">
       <TimelineNode type={type} isLast={isLast} />
-      <div className="flex-1 min-w-0 pb-5 pt-0.5">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex-1 min-w-0 pb-5">
+        <div className={cn(
+          "flex items-center gap-1.5 text-[11px]",
+          type === 'node_transition' ? "text-muted-foreground/30" : "text-muted-foreground"
+        )}>
           <span className="font-medium">{label}</span>
           <span className="text-muted-foreground/50">{time}</span>
         </div>
@@ -379,9 +383,12 @@ function CollapsibleSystemEntry({ entry, t, isLast }: {
       <div className="flex-1 min-w-0 pb-5">
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          className={cn(
+            "flex items-center gap-1.5 text-[11px] transition-colors",
+            type === 'node_transition' ? "text-muted-foreground/30 hover:text-muted-foreground/60" : "text-muted-foreground hover:text-foreground"
+          )}
         >
-          <span className="font-medium">{label}</span>
+          <span className={cn("font-medium", type === 'error' && "text-red-500")}>{label}</span>
           <span className="text-muted-foreground/50">{time}</span>
           {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
@@ -580,22 +587,18 @@ export default function AIHistoryPage() {
 
           {/* 统计概览 - 带图标 */}
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-primary/5 rounded-lg p-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                <HardDrive className="w-4 h-4 text-blue-500" />
-              </div>
+            <div className="bg-card border rounded-xl p-3 flex items-center gap-3 shadow-sm">
+              <HardDrive className="w-7 h-7 text-blue-500 shrink-0" />
               <div className="min-w-0">
                 <p className="text-[11px] text-muted-foreground leading-tight">{t('aiHistory.statsTotalFiles')}</p>
-                <p className="text-lg font-bold leading-tight mt-0.5">{stats?.total_files ?? '-'}</p>
+                <p className="text-lg font-bold leading-tight mt-0.5">{stats?.disk_count ?? '-'}</p>
               </div>
             </div>
-            <div className="bg-primary/5 rounded-lg p-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                <Cpu className="w-4 h-4 text-green-500" />
-              </div>
+            <div className="bg-card border rounded-xl p-3 flex items-center gap-3 shadow-sm">
+              <Cpu className="w-7 h-7 text-green-500 shrink-0" />
               <div className="min-w-0">
                 <p className="text-[11px] text-muted-foreground leading-tight">{t('aiHistory.statsActiveSessions')}</p>
-                <p className="text-lg font-bold leading-tight mt-0.5">{stats?.memory_active_sessions ?? '-'}</p>
+                <p className="text-lg font-bold leading-tight mt-0.5">{stats?.memory_count ?? '-'}</p>
               </div>
             </div>
           </div>
@@ -686,13 +689,12 @@ export default function AIHistoryPage() {
                       isSelected && "bg-primary/10 hover:bg-primary/10 border-l-2 border-primary"
                     )}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={cn(
-                        "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
-                        log.is_active ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
-                      )}>
-                        {log.is_active ? <Radio className="w-4 h-4" /> : <FileCheck className="w-4 h-4" />}
-                      </div>
+                    <div className="flex items-start gap-3 pt-0.5">
+                      {log.is_active ? (
+                        <Radio className="w-6 h-6 text-green-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <FileCheck className="w-6 h-6 text-muted-foreground shrink-0 mt-0.5" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm font-medium truncate">{log.session_id}</span>
@@ -702,32 +704,45 @@ export default function AIHistoryPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
+                            <User className="w-3.5 h-3.5 text-indigo-400" />
                             {log.persona_name}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
                             {log.created_at_str}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Database className="w-3 h-3" />
+                            <Database className="w-3.5 h-3.5 text-teal-400" />
                             {log.entry_count} {t('aiHistory.entries')}
                           </span>
                         </div>
                         {log.type_counts && Object.keys(log.type_counts).length > 0 && (
                           <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                            {Object.entries(log.type_counts).slice(0, 4).map(([type, count]) => (
-                              <Badge key={type} variant="secondary" className="text-[10px] h-4 px-1">
-                                {getEntryTypeLabel(type as SessionLogEntryType, t)}: {count as number}
-                              </Badge>
-                            ))}
-                            {Object.keys(log.type_counts).length > 4 && (
-                              <span className="text-[10px] text-muted-foreground">
-                                +{Object.keys(log.type_counts).length - 4}
-                              </span>
-                            )}
+                            {(() => {
+                              const priority: Record<string, number> = {
+                                tool_call: 1, user_input: 2, text_output: 3,
+                                thinking: 4, token_usage: 5, error: 6,
+                              };
+                              const sorted = Object.entries(log.type_counts)
+                                .filter(([type]) => priority[type] !== undefined)
+                                .sort((a, b) => priority[a[0]] - priority[b[0]]);
+                              return (
+                                <>
+                                  {sorted.slice(0, 3).map(([type, count]) => (
+                                    <Badge key={type} variant="secondary" className="text-[10px] h-4 px-1">
+                                      {getEntryTypeLabel(type as SessionLogEntryType, t)}: {count as number}
+                                    </Badge>
+                                  ))}
+                                  {sorted.length > 3 && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      +{sorted.length - 3}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
@@ -791,8 +806,8 @@ export default function AIHistoryPage() {
                 </Button>
                 <Avatar className="w-7 h-7 shrink-0">
                   <AvatarImage src={avatarUrl} alt={personaName} />
-                  <AvatarFallback className="bg-indigo-500/10 text-indigo-600 text-[10px]">
-                    <Bot className="w-3.5 h-3.5" />
+                  <AvatarFallback className="bg-indigo-500/10 text-indigo-600">
+                    <Bot className="w-4 h-4" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
@@ -829,7 +844,7 @@ export default function AIHistoryPage() {
                   <div className="space-y-4">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="flex gap-3">
-                        <Skeleton className="w-5 h-5 rounded-full shrink-0" />
+                        <Skeleton className="w-4 h-4 rounded shrink-0 mt-1.5" />
                         <Skeleton className="h-8 rounded-xl w-[60%]" />
                       </div>
                     ))}

@@ -2581,10 +2581,11 @@ export interface SessionLogDetail {
 }
 
 export interface SessionLogStatsOverview {
-  total_files: number;
+  total: number;
   today_count: number;
-  active_files: number;
-  memory_active_sessions: number;
+  active_count: number;
+  memory_count: number;
+  disk_count: number;
   create_by_distribution: Record<string, number>;
   log_path: string;
 }
