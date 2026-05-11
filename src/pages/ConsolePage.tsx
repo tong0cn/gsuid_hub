@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo, forwardRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Terminal, Trash2, Download, Circle } from "lucide-react";
 import { StructuredDataViewer } from "@/components/StructuredDataViewer";
@@ -20,79 +20,144 @@ interface LogEntry {
 
 let logCounter = 0;
 
+function getLevelBadge(type: LogEntry["type"]) {
+  const badges = {
+    input: { label: "CMD", bg: "bg-blue-600", text: "text-white" },
+    output: { label: "OUT", bg: "bg-slate-600", text: "text-white" },
+    error: { label: "ERROR", bg: "bg-red-600", text: "text-white" },
+    warning: { label: "WARN", bg: "bg-yellow-500", text: "text-black" },
+    info: { label: "INFO", bg: "bg-emerald-600", text: "text-white" },
+    debug: { label: "DEBUG", bg: "bg-purple-600", text: "text-white" },
+    trace: { label: "TRACE", bg: "bg-gray-600", text: "text-white" },
+  };
+  return badges[type] || badges.info;
+}
+
+function getLogColor(type: LogEntry["type"]) {
+  switch (type) {
+    case "input":
+      return "text-cyan-400";
+    case "output":
+      return "text-gray-200";
+    case "error":
+      return "text-red-400";
+    case "warning":
+      return "text-yellow-400";
+    case "info":
+      return "text-black dark:text-white";
+    case "debug":
+      return "text-purple-400";
+    case "trace":
+      return "text-gray-400";
+    default:
+      return "text-gray-200";
+  }
+}
+
+interface LogRowProps {
+  log: LogEntry;
+  style?: React.CSSProperties;
+  "data-index": number;
+}
+
+const LogRow = memo(
+  forwardRef<HTMLDivElement, LogRowProps>(
+    function LogRow({ log, style, "data-index": dataIndex }, ref) {
+      const badge = getLevelBadge(log.type);
+      return (
+        <div
+          ref={ref}
+          data-index={dataIndex}
+          style={style}
+          className="flex items-start gap-2 py-1"
+        >
+          <span className="text-muted-foreground text-xs shrink-0">
+            [{log.timestamp.toLocaleTimeString()}]
+          </span>
+          <span
+            className={`${badge.bg} ${badge.text} text-xs px-1.5 py-0.5 rounded font-semibold shrink-0 h-fit`}
+          >
+            {badge.label}
+          </span>
+          <div className={cn("whitespace-pre-wrap break-all", getLogColor(log.type))}>
+            <StructuredDataViewer data={log.content} />
+          </div>
+        </div>
+      );
+    }
+  )
+);
+
 export default function ConsolePage() {
   const { t } = useLanguage();
   const { style } = useTheme();
   const isGlass = style === 'glassmorphism';
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // 数据存在 ref 中，避免 React 遍历大数组
+  const logsRef = useRef<LogEntry[]>([]);
+  const [logVersion, setLogVersion] = useState(0);
+
   const [input, setInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [autoScroll, setAutoScroll] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const parentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom only when autoScroll is enabled
-  useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      });
-    }
-  }, [logs, autoScroll]);
+  const virtualizer = useVirtualizer({
+    count: logsRef.current.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 28,
+    overscan: 10,
+    getItemKey: (index) => logsRef.current[index]?.id ?? index,
+    measureElement:
+      typeof window !== "undefined" && "ResizeObserver" in window
+        ? (element) => element.getBoundingClientRect().height
+        : undefined,
+  });
 
-  // Real-time log stream connection
+  // Auto-scroll to bottom when enabled
+  useEffect(() => {
+    if (autoScroll) {
+      virtualizer.scrollToIndex(logsRef.current.length - 1);
+    }
+  }, [logVersion, autoScroll, virtualizer]);
+
+  // SSE stream for real-time logs
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) return;
 
-    const eventSource = new EventSource(`/api/logs/stream`, {
-      withCredentials: true
-    });
-
-    // Add authorization header via query parameter since EventSource doesn't support headers directly
-    const authEventSource = new EventSource(`/api/logs/stream?token=${encodeURIComponent(token)}`, {
-      withCredentials: true
-    });
+    const authEventSource = new EventSource(
+      `/api/logs/stream?token=${encodeURIComponent(token)}`,
+      { withCredentials: true }
+    );
 
     authEventSource.onmessage = (event) => {
       try {
         const logData = JSON.parse(event.data);
         let logType: LogEntry["type"] = "info";
-        
         switch (logData.level.toLowerCase()) {
-          case "error":
-            logType = "error";
-            break;
+          case "error": logType = "error"; break;
           case "warning":
-          case "warn":
-            logType = "warning";
-            break;
-          case "info":
-            logType = "info";
-            break;
-          case "debug":
-            logType = "debug";
-            break;
-          case "trace":
-            logType = "trace";
-            break;
-          default:
-            logType = "info";
+          case "warn": logType = "warning"; break;
+          case "info": logType = "info"; break;
+          case "debug": logType = "debug"; break;
+          case "trace": logType = "trace"; break;
         }
 
-        setLogs((prev) => {
-          // Keep max 400 logs to avoid memory issues
-          const newLogs = [...prev, {
-            id: (++logCounter).toString(),
-            type: logType,
-            content: logData.message,
-            timestamp: new Date(logData.timestamp),
-          }];
-          return newLogs.slice(-400);
+        logsRef.current.push({
+          id: (++logCounter).toString(),
+          type: logType,
+          content: logData.message,
+          timestamp: new Date(logData.timestamp),
         });
+        // 限制最大条数
+        if (logsRef.current.length > 2000) {
+          logsRef.current = logsRef.current.slice(-2000);
+        }
+        setLogVersion((v) => v + 1);
       } catch (e) {
         console.error("Failed to parse log message:", e);
       }
@@ -101,7 +166,6 @@ export default function ConsolePage() {
     authEventSource.onerror = (error) => {
       console.error("Log stream error:", error);
       authEventSource.close();
-      // Reconnect after 3 seconds
       setTimeout(() => {
         window.location.reload();
       }, 3000);
@@ -112,40 +176,41 @@ export default function ConsolePage() {
     };
   }, []);
 
+  const addLogs = useCallback((entries: LogEntry[]) => {
+    logsRef.current.push(...entries);
+    if (logsRef.current.length > 2000) {
+      logsRef.current = logsRef.current.slice(-2000);
+    }
+    setLogVersion((v) => v + 1);
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim()) return;
 
       const command = input.trim();
-      
-      // Add command input first
-      const newLogs: LogEntry[] = [
-        {
-          id: (++logCounter).toString(),
-          type: "input",
-          content: `$ ${command}`,
-          timestamp: new Date(),
-        },
-      ];
 
-      setLogs((prev) => [...prev, ...newLogs]);
+      addLogs([{
+        id: (++logCounter).toString(),
+        type: "input",
+        content: `$ ${command}`,
+        timestamp: new Date(),
+      }]);
+
       setCommandHistory((prev) => [command, ...prev].slice(0, 50));
       setHistoryIndex(-1);
       setInput("");
 
-      // Handle clear command (clear locally)
       if (command.toLowerCase() === "clear") {
-        setLogs([]);
+        logsRef.current = [];
+        setLogVersion((v) => v + 1);
         return;
       }
 
-      // Call backend API to execute command
       try {
         const response = await remoteCommandApi.execute(command);
-        
         const outputLogs: LogEntry[] = [];
-        
         if (response.output) {
           outputLogs.push({
             id: (++logCounter).toString(),
@@ -154,7 +219,6 @@ export default function ConsolePage() {
             timestamp: new Date(),
           });
         }
-        
         if (response.error) {
           outputLogs.push({
             id: (++logCounter).toString(),
@@ -163,21 +227,19 @@ export default function ConsolePage() {
             timestamp: new Date(),
           });
         }
-        
         if (outputLogs.length > 0) {
-          setLogs((prev) => [...prev, ...outputLogs]);
+          addLogs(outputLogs);
         }
       } catch (error) {
-        const errorLog: LogEntry = {
+        addLogs([{
           id: (++logCounter).toString(),
           type: "error",
-          content: error instanceof Error ? error.message : t('console.commandFailed') || "Command execution failed",
+          content: error instanceof Error ? error.message : (t('console.commandFailed') || "Command execution failed"),
           timestamp: new Date(),
-        };
-        setLogs((prev) => [...prev, errorLog]);
+        }]);
       }
     },
-    [input],
+    [input, addLogs, t],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -201,10 +263,13 @@ export default function ConsolePage() {
     }
   };
 
-  const clearLogs = () => setLogs([]);
+  const clearLogs = () => {
+    logsRef.current = [];
+    setLogVersion((v) => v + 1);
+  };
 
   const exportLogs = () => {
-    const content = logs
+    const content = logsRef.current
       .map((log) => `[${log.timestamp.toISOString()}] [${log.type.toUpperCase()}] ${log.content}`)
       .join("\n");
     const blob = new Blob([content], { type: "text/plain" });
@@ -216,39 +281,7 @@ export default function ConsolePage() {
     URL.revokeObjectURL(url);
   };
 
-  const getLevelBadge = (type: LogEntry["type"]) => {
-    const badges = {
-      input: { label: "CMD", bg: "bg-blue-600", text: "text-white" },
-      output: { label: "OUT", bg: "bg-slate-600", text: "text-white" },
-      error: { label: "ERROR", bg: "bg-red-600", text: "text-white" },
-      warning: { label: "WARN", bg: "bg-yellow-500", text: "text-black" },
-      info: { label: "INFO", bg: "bg-emerald-600", text: "text-white" },
-      debug: { label: "DEBUG", bg: "bg-purple-600", text: "text-white" },
-      trace: { label: "TRACE", bg: "bg-gray-600", text: "text-white" },
-    };
-    return badges[type] || badges.info;
-  };
-
-  const getLogColor = (type: LogEntry["type"]) => {
-    switch (type) {
-      case "input":
-        return "text-cyan-400";
-      case "output":
-        return "text-gray-200";
-      case "error":
-        return "text-red-400";
-      case "warning":
-        return "text-yellow-400";
-      case "info":
-        return "text-black dark:text-white";
-      case "debug":
-        return "text-purple-400";
-      case "trace":
-        return "text-gray-400";
-      default:
-        return "text-gray-200";
-    }
-  };
+  const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div className="space-y-6 flex-1 overflow-auto p-6 h-full flex flex-col">
@@ -262,21 +295,21 @@ export default function ConsolePage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Circle className="w-2 h-2 fill-green-500 text-green-500 animate-pulse" />
-              {t('console.connected')}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{t('console.autoScroll')}</span>
-              <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
-            </div>
-            <Button variant="outline" size="sm" onClick={exportLogs}>
-              <Download className="w-4 h-4 mr-2" />
-              {t('console.exportLogs')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={clearLogs}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('console.clear')}
-            </Button>
+            <Circle className="w-2 h-2 fill-green-500 text-green-500 animate-pulse" />
+            {t('console.connected')}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{t('console.autoScroll')}</span>
+            <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
+          </div>
+          <Button variant="outline" size="sm" onClick={exportLogs}>
+            <Download className="w-4 h-4 mr-2" />
+            {t('console.exportLogs')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={clearLogs}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            {t('console.clear')}
+          </Button>
         </div>
       </div>
 
@@ -296,23 +329,42 @@ export default function ConsolePage() {
           <span className="text-xs text-muted-foreground ml-2 font-mono">admin@server:~</span>
         </div>
 
-        {/* Terminal Content */}
-        <div className="flex-1 p-4 bg-transparent overflow-y-auto" ref={scrollRef}>
-          <div className="font-mono text-sm space-y-2">
-            {logs.map((log) => {
-              const badge = getLevelBadge(log.type);
-              return (
-                <div key={log.id} className="flex items-start gap-2 whitespace-pre-wrap break-all">
-                  <span className="text-muted-foreground text-xs shrink-0">[{log.timestamp.toLocaleTimeString()}]</span>
-                  <span className={`${badge.bg} ${badge.text} text-xs px-1.5 py-0.5 rounded font-semibold shrink-0`}>
-                    {badge.label}
-                  </span>
-                  <div className={getLogColor(log.type)}>
-                    <StructuredDataViewer data={log.content} />
-                  </div>
-                </div>
-              );
-            })}
+        {/* Terminal Content - Virtual Scroll */}
+        <div
+          ref={parentRef}
+          className="flex-1 p-4 bg-transparent overflow-y-auto font-mono text-sm relative"
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+              }}
+            >
+              {virtualItems.map((virtualItem) => (
+                <LogRow
+                  key={virtualItem.key}
+                  log={logsRef.current[virtualItem.index]}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualItem.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
 

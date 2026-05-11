@@ -975,7 +975,12 @@
     "legendSpeaker": "Speaker",
     "legendEntity": "Entity",
     "legendCategory": "Category",
-    "legendInvalid": "Invalid"
+    "legendInvalid": "Invalid",
+    "clearMemory": "Clear Current Scope Memory",
+    "confirmClearMemory": "Are you sure you want to clear all memory for scope \"{scope}\"? This will delete all episodes, entities, edges and categories in this scope. This action cannot be undone!",
+    "clearMemorySuccess": "Memory for scope \"{scope}\" cleared. Deleted {episodes} episodes, {entities} entities, {edges} edges and {categories} categories.",
+    "clearMemoryFailed": "Failed to clear memory",
+    "clearMemoryTitle": "Confirm Clear Memory"
   },
   "aiHistory": {
     "title": "AI Call History",

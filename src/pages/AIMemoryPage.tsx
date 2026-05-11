@@ -25,6 +25,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Database,
   Brain,
   MessageSquare,
@@ -235,6 +245,14 @@ const memoryApi = {
   updateConfig: (data: Partial<MemoryConfig>) => api.put<MemoryConfig>('/api/ai/memory/config', data),
   deleteScope: (scopeKey: string) =>
     api.delete<{ scope_key: string; deleted_episodes: number; deleted_entities: number; deleted_edges: number; deleted_categories: number }>(`/api/ai/memory/scopes/${encodeURIComponent(scopeKey)}`),
+  clearMemory: (params: { scope_key?: string; scope_pattern?: string; dry_run?: boolean }) =>
+    api.post<{
+      affected_scope_keys: string[];
+      deleted_episodes: number;
+      deleted_entities: number;
+      deleted_edges: number;
+      deleted_categories: number;
+    }>('/api/ai/memory/clear', params),
 };
 
 // ============================================================================
@@ -1528,6 +1546,8 @@ export default function AIMemoryPage() {
   const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<(Category & { parent_categories: { id: string; name: string; layer: number }[]; child_categories: { id: string; name: string; layer: number }[]; member_entities: Entity[] }) | null>(null);
   const [activeTab, setActiveTab] = useState('graph');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [clearMemoryDialogOpen, setClearMemoryDialogOpen] = useState(false);
+  const [clearMemoryLoading, setClearMemoryLoading] = useState(false);
   const [dialogType, setDialogType] = useState<'episode' | 'entity' | 'edge' | 'category'>('episode');
 
   useEffect(() => {
@@ -1819,9 +1839,9 @@ export default function AIMemoryPage() {
       <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <p className="text-sm text-muted-foreground">{t('aiMemory.graphDescription')}</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Select value={selectedScope} onValueChange={handleScopeChange}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1829,7 +1849,10 @@ export default function AIMemoryPage() {
                   {scopes.map((s) => <SelectItem key={s.scope_key} value={s.scope_key}>{s.scope_key}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={() => { fetchEntities(1); fetchEdges(1); fetchCategories(1); }}>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => setClearMemoryDialogOpen(true)} disabled={selectedScope === 'all' || !selectedScope}>
+                <Trash2 className="w-4 h-4 mr-1" />{t('aiMemory.clearMemory')}
+              </Button>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => { fetchEntities(1); fetchEdges(1); fetchCategories(1); }}>
                 <RefreshCw className="w-4 h-4 mr-1" />{t('common.refresh')}
               </Button>
             </div>
@@ -2190,6 +2213,57 @@ export default function AIMemoryPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Clear Memory Confirmation Dialog */}
+      <AlertDialog open={clearMemoryDialogOpen} onOpenChange={setClearMemoryDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('aiMemory.clearMemoryTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('aiMemory.confirmClearMemory', {
+                scope: selectedScope,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setClearMemoryDialogOpen(false)}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!selectedScope || selectedScope === 'all') return;
+                setClearMemoryLoading(true);
+                try {
+                  const result = await memoryApi.clearMemory({ scope_key: selectedScope });
+                  toast.success(t('aiMemory.clearMemorySuccess', {
+                    scope: selectedScope,
+                    episodes: result.deleted_episodes,
+                    entities: result.deleted_entities,
+                    edges: result.deleted_edges,
+                    categories: result.deleted_categories,
+                  }));
+                  setClearMemoryDialogOpen(false);
+                  // Refresh all data
+                  const scopesData = await memoryApi.getScopes();
+                  setScopes(scopesData);
+                  const statsData = await memoryApi.getStats();
+                  if (statsData) setStats(statsData);
+                  fetchEntities(1);
+                  fetchEdges(1);
+                  fetchCategories(1);
+                  fetchEpisodes(1);
+                } catch (error) {
+                  toast.error(t('aiMemory.clearMemoryFailed'));
+                } finally {
+                  setClearMemoryLoading(false);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={clearMemoryLoading}
+            >
+              {clearMemoryLoading ? t('common.loading') : t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

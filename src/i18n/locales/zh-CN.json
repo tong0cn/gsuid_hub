@@ -1004,7 +1004,12 @@
     "legendSpeaker": "说话者",
     "legendEntity": "实体",
     "legendCategory": "分类",
-    "legendInvalid": "已失效"
+    "legendInvalid": "已失效",
+    "clearMemory": "清除当前范围记忆",
+    "confirmClearMemory": "确定要清除范围「{scope}」的全部记忆吗？此操作将删除该范围内的所有对话片段、实体、关系和分类。此操作不可逆！",
+    "clearMemorySuccess": "已清除范围「{scope}」的记忆，删除了 {episodes} 条对话片段、{entities} 个实体、{edges} 条关系和 {categories} 个分类",
+    "clearMemoryFailed": "清除记忆失败",
+    "clearMemoryTitle": "确认清除记忆"
   },
   "aiHistory": {
     "title": "AI 历史调用",
