@@ -2535,7 +2535,24 @@ export type SessionLogEntryType =
   | 'result'
   | 'token_usage'
   | 'error'
-  | 'node_transition';
+  | 'node_transition'
+  | 'agent_linked'
+  | 'tools_list';
+
+export interface LinkedAgent {
+  agent_type: string;
+  session_id: string;
+  session_uuid: string;
+  persona_name: string | null;
+  create_by: string;
+  linked_at: number;
+  entry_count?: number;
+  type_counts?: Record<string, number>;
+  is_active?: boolean;
+  created_at?: number;
+  ended_at?: number | null;
+  source?: 'memory' | 'disk';
+}
 
 export interface SessionLogEntry {
   type: SessionLogEntryType;
@@ -2557,8 +2574,11 @@ export interface SessionLogSummary {
   duration_seconds: number;
   entry_count: number;
   is_active: boolean;
+  is_subagent?: boolean;
   source: 'memory' | 'disk';
   type_counts: Record<string, number>;
+  linked_agents: LinkedAgent[];
+  linked_agent_count: number;
 }
 
 export interface SessionLogListResponse {
@@ -2578,6 +2598,9 @@ export interface SessionLogDetail {
   ended_at: number | null;
   entry_count: number;
   entries: SessionLogEntry[];
+  linked_agents: LinkedAgent[];
+  linked_agent_count: number;
+  source: 'memory' | 'disk';
 }
 
 export interface SessionLogStatsOverview {

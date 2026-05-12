@@ -1026,7 +1026,9 @@
       "result": "Result",
       "tokenUsage": "Token Usage",
       "error": "Error",
-      "nodeTransition": "Node Transition"
+      "nodeTransition": "Node Transition",
+      "agentLinked": "Sub Agent",
+      "toolsList": "Tools List"
     },
     "filterTitle": "Filters",
     "selectSession": "Select a session to view details"

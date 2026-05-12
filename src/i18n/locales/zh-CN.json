@@ -1055,7 +1055,9 @@
       "result": "运行结果",
       "tokenUsage": "Token 用量",
       "error": "错误",
-      "nodeTransition": "节点转换"
+      "nodeTransition": "节点转换",
+      "agentLinked": "子Agent",
+      "toolsList": "工具列表"
     },
     "filterTitle": "筛选条件",
     "selectSession": "选择会话查看详情"

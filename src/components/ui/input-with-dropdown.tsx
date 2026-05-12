@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMemo, useRef, useCallback } from 'react';
+import { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,14 +43,24 @@ export function InputWithDropdown({
   className,
   popoverWidth = 'w-[400px]',
 }: InputWithDropdownProps) {
-  // 根据输入值实时筛选列表
-  const filteredOptions = useMemo(() => {
-    if (!value.trim()) return options;
-    const lowerValue = value.toLowerCase();
-    return options.filter(option => option.toLowerCase().includes(lowerValue));
-  }, [value, options]);
-
+  // 搜索输入值（独立于选中值）
+  const [searchValue, setSearchValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Popover 打开时重置搜索值
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setSearchValue('');
+    }
+  }, [open]);
+
+  // 根据搜索值筛选列表
+  const filteredOptions = useMemo(() => {
+    if (!searchValue.trim()) return options;
+    const lowerSearch = searchValue.toLowerCase();
+    return options.filter(option => option.toLowerCase().includes(lowerSearch));
+  }, [searchValue, options]);
 
   const handleOpenAutoFocus = useCallback((e: Event) => {
     e.preventDefault();
@@ -61,7 +71,7 @@ export function InputWithDropdown({
   }, []);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -87,8 +97,8 @@ export function InputWithDropdown({
         <div className="p-2">
           <Input
             ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
             placeholder={inputPlaceholder}
             className="h-9"
           />
@@ -105,14 +115,17 @@ export function InputWithDropdown({
                   'px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground',
                   value === option && 'bg-accent'
                 )}
-                onClick={() => onChange(option)}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
               >
                 {option}
               </div>
             ))}
           </div>
         )}
-        {value.trim() && filteredOptions.length === 0 && (
+        {searchValue.trim() && filteredOptions.length === 0 && (
           <div className="px-3 py-2 text-sm text-muted-foreground border-t">
             无匹配选项
           </div>

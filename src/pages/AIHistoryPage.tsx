@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,18 +44,21 @@ import {
   FileCheck,
   BarChart3,
   ChevronLeft,
+  ChevronRight,
   HardDrive,
   Cpu,
   SlidersHorizontal,
 } from 'lucide-react';
 import {
   aiSessionLogsApi,
+  aiToolsApi,
   personaApi,
   SessionLogSummary,
   SessionLogDetail,
   SessionLogEntry,
   SessionLogEntryType,
   SessionLogStatsOverview,
+  LinkedAgent,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -98,6 +102,8 @@ function getEntryTypeLabel(type: SessionLogEntryType, t: (key: string) => string
     token_usage: t('aiHistory.entryType.tokenUsage'),
     error: t('aiHistory.entryType.error'),
     node_transition: t('aiHistory.entryType.nodeTransition'),
+    agent_linked: t('aiHistory.entryType.agentLinked') || '子Agent',
+    tools_list: t('aiHistory.entryType.toolsList') || '工具列表',
   };
   return map[type] || type;
 }
@@ -118,6 +124,8 @@ function getEntryTypeIcon(type: SessionLogEntryType) {
     case 'token_usage': return <BarChart3 className="w-4 h-4" />;
     case 'error': return <XOctagon className="w-4 h-4" />;
     case 'node_transition': return <GitBranch className="w-4 h-4" />;
+    case 'agent_linked': return <Bot className="w-4 h-4" />;
+    case 'tools_list': return <Wrench className="w-4 h-4" />;
     default: return <FileText className="w-4 h-4" />;
   }
 }
@@ -133,8 +141,42 @@ function getEntryTypeColor(type: SessionLogEntryType): string {
     case 'token_usage': return 'text-cyan-500';
     case 'system_prompt': return 'text-purple-500';
     case 'node_transition': return 'text-pink-500';
+    case 'agent_linked': return 'text-violet-500';
+    case 'tools_list': return 'text-cyan-500';
     default: return 'text-muted-foreground';
   }
+}
+
+// 工具徽章组件 - 显示工具名称和描述
+function ToolBadge({ toolName }: { toolName: string }) {
+  const [details, setDetails] = useState<{ description?: string; plugin?: string } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    aiToolsApi.getToolDetail(toolName).then(res => {
+      if (mounted && res.status === 0 && res.data) {
+        setDetails({ description: res.data.description, plugin: res.data.plugin });
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, [toolName]);
+
+  const tooltipContent = details
+    ? `${details.plugin ? `[${details.plugin}] ` : ''}${details.description || toolName}`
+    : toolName;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 cursor-help">
+          {toolName}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs font-mono">{tooltipContent}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function hasEntryContent(entry: SessionLogEntry): boolean {
@@ -158,6 +200,10 @@ function hasEntryContent(entry: SessionLogEntry): boolean {
       return !!data.node_type;
     case 'system_prompt':
       return !!data.content;
+    case 'tools_list':
+      return !!(data.tools && (data.tools as unknown[]).length > 0);
+    case 'agent_linked':
+      return true;
     case 'session_created':
     case 'session_ended':
     case 'run_start':
@@ -236,6 +282,19 @@ function EntryContent({ entry, t }: { entry: SessionLogEntry; t: (key: string) =
     );
   }
 
+  if (type === 'tools_list') {
+    const tools = data.tools as string[];
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="flex flex-wrap gap-1">
+          {tools.map((tool, index) => (
+            <ToolBadge key={index} toolName={tool} />
+          ))}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
   if (type === 'system_prompt') {
     return (
       <pre className="text-xs bg-muted/50 rounded-md p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
@@ -258,11 +317,12 @@ function EntryContent({ entry, t }: { entry: SessionLogEntry; t: (key: string) =
   );
 }
 
-function TimelineEntry({ entry, t, personaName, isLast }: {
+function TimelineEntry({ entry, t, personaName, isLast, onAgentLinkedClick }: {
   entry: SessionLogEntry;
   t: (key: string) => string;
   personaName: string;
   isLast: boolean;
+  onAgentLinkedClick?: (agent: LinkedAgent) => void;
 }) {
   const type = entry.type;
   const label = getEntryTypeLabel(type, t);
@@ -342,8 +402,55 @@ function TimelineEntry({ entry, t, personaName, isLast }: {
     );
   }
 
+  // agent_linked 特殊处理 - 只显示 sub_agent 类型的可点击按钮
+  if (type === 'agent_linked') {
+    const agentData = entry.data as {
+      agent_type: string;
+      session_id: string;
+      session_uuid: string;
+      persona_name: string | null;
+      create_by: string;
+      linked_at: number;
+    };
+    
+    // 只有 sub_agent 类型才显示可点击按钮，其他类型隐藏
+    if (agentData.agent_type !== 'sub_agent') {
+      return null;
+    }
+    
+    // 创建一个临时的 LinkedAgent 对象用于点击
+    const linkedAgent: LinkedAgent = {
+      agent_type: agentData.agent_type,
+      session_id: agentData.session_id,
+      session_uuid: agentData.session_uuid,
+      persona_name: agentData.persona_name,
+      create_by: agentData.create_by,
+      linked_at: agentData.linked_at,
+    };
+    return (
+      <div className="flex gap-3">
+        <TimelineNode type={type} isLast={isLast} />
+        <div className="flex-1 min-w-0 pb-5">
+          <button
+            onClick={() => onAgentLinkedClick?.(linkedAgent)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors w-full",
+              "bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20",
+              "text-violet-600"
+            )}
+          >
+            <Bot className="w-4 h-4" />
+            <span className="font-medium">查看子Agent详情</span>
+            <span className="text-violet-400/70 ml-auto">{agentData.session_id}</span>
+            <ChevronRight className="w-3 h-3 ml-1" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 可折叠系统消息
-  const collapsibleTypes = ['thinking', 'tool_call', 'tool_return', 'system_prompt', 'error'];
+  const collapsibleTypes = ['thinking', 'tool_call', 'tool_return', 'system_prompt', 'error', 'tools_list'];
   const isCollapsible = collapsibleTypes.includes(type);
 
   if (isCollapsible && hasContent) {
@@ -422,6 +529,32 @@ export default function AIHistoryPage() {
   const [detail, setDetail] = useState<SessionLogDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
+  // 选中的子Agent详情
+  const [selectedLinkedAgent, setSelectedLinkedAgent] = useState<LinkedAgent | null>(null);
+  const [linkedAgentDetail, setLinkedAgentDetail] = useState<SessionLogDetail | null>(null);
+  const [isLoadingLinkedAgentDetail, setIsLoadingLinkedAgentDetail] = useState(false);
+
+  // 工具详情缓存
+  const [toolDetailsCache, setToolDetailsCache] = useState<Record<string, { description?: string; plugin?: string }>>({});
+
+  // 获取工具详情
+  const fetchToolDetail = useCallback(async (toolName: string) => {
+    if (toolDetailsCache[toolName]) {
+      return toolDetailsCache[toolName];
+    }
+    try {
+      const res = await aiToolsApi.getToolDetail(toolName);
+      if (res.status === 0 && res.data) {
+        const details = { description: res.data.description, plugin: res.data.plugin };
+        setToolDetailsCache(prev => ({ ...prev, [toolName]: details }));
+        return details;
+      }
+    } catch (e) {
+      console.error('Failed to fetch tool detail:', e);
+    }
+    return {};
+  }, [toolDetailsCache]);
+
   // 筛选
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCreateBy, setFilterCreateBy] = useState<string>(DEFAULT_SELECT_VALUE);
@@ -481,6 +614,8 @@ export default function AIHistoryPage() {
   const fetchDetail = useCallback(async (log: SessionLogSummary) => {
     try {
       setIsLoadingDetail(true);
+      setSelectedLinkedAgent(null);
+      setLinkedAgentDetail(null);
       const data = await aiSessionLogsApi.getLogDetail(log.session_id, log.session_uuid);
       setDetail(data);
       setSelectedLog(log);
@@ -493,6 +628,25 @@ export default function AIHistoryPage() {
       });
     } finally {
       setIsLoadingDetail(false);
+    }
+  }, [t]);
+
+  // 获取子Agent详情
+  const fetchLinkedAgentDetail = useCallback(async (agent: LinkedAgent) => {
+    try {
+      setIsLoadingLinkedAgentDetail(true);
+      const data = await aiSessionLogsApi.getLogDetail(agent.session_id, agent.session_uuid);
+      setLinkedAgentDetail(data);
+      setSelectedLinkedAgent(agent);
+    } catch (err) {
+      console.error('Failed to fetch linked agent detail:', err);
+      toast({
+        title: t('common.error'),
+        description: t('aiHistory.loadDetailFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingLinkedAgentDetail(false);
     }
   }, [t]);
 
@@ -677,7 +831,7 @@ export default function AIHistoryPage() {
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {logs.map((log) => {
+              {logs.filter(log => !log.is_subagent).map((log) => {
                 const isSelected = selectedLog?.session_uuid === log.session_uuid;
                 return (
                   <button
@@ -721,32 +875,193 @@ export default function AIHistoryPage() {
                         {log.type_counts && Object.keys(log.type_counts).length > 0 && (
                           <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                             {(() => {
+                              // 过滤掉的类型
+                              const excludedTypes = new Set([
+                                'session_created', 'system_prompt', 'run_start',
+                                'thinking', 'token_usage', 'error', 'node_transition',
+                                'run_end', 'session_ended'
+                              ]);
+                              
+                              // 优先级：result 和 tool_call 置顶，user_input, text_output 置底
                               const priority: Record<string, number> = {
-                                tool_call: 1, user_input: 2, text_output: 3,
-                                thinking: 4, token_usage: 5, error: 6,
+                                result: 1, tool_call: 2,
+                                user_input: 3, text_output: 4,
                               };
-                              const sorted = Object.entries(log.type_counts)
-                                .filter(([type]) => priority[type] !== undefined)
-                                .sort((a, b) => priority[a[0]] - priority[b[0]]);
+                              
+                              // 收集需要显示的条目
+                              const entries: Array<{ type: string; count: number; isToolCallRatio?: boolean; toolReturn?: number; toolCall?: number }> = [];
+                              
+                              // 处理 tool_call 和 tool_return
+                              const toolCall = (log.type_counts as Record<string, number>)['tool_call'] || 0;
+                              const toolReturn = (log.type_counts as Record<string, number>)['tool_return'] || 0;
+                              if (toolCall > 0) {
+                                entries.push({
+                                  type: 'tool_call',
+                                  count: toolCall,
+                                  isToolCallRatio: true,
+                                  toolReturn,
+                                  toolCall,
+                                });
+                              }
+                              
+                              // 处理其他类型
+                              Object.entries(log.type_counts)
+                                .filter(([type]) => !excludedTypes.has(type) && type !== 'tool_call' && type !== 'tool_return')
+                                .forEach(([type, count]) => {
+                                  if (priority[type] !== undefined) {
+                                    entries.push({ type, count });
+                                  }
+                                });
+                              
+                              // 排序：priority 低的在前
+                              entries.sort((a, b) => {
+                                const priorityA = priority[a.type] ?? 99;
+                                const priorityB = priority[b.type] ?? 99;
+                                return priorityA - priorityB;
+                              });
+                              
                               return (
                                 <>
-                                  {sorted.slice(0, 3).map(([type, count]) => (
-                                    <Badge key={type} variant="secondary" className="text-[10px] h-4 px-1">
-                                      {getEntryTypeLabel(type as SessionLogEntryType, t)}: {count as number}
+                                  {entries.slice(0, 3).map((entry) => (
+                                    <Badge
+                                      key={entry.type}
+                                      variant="secondary"
+                                      className={cn(
+                                        "text-[10px] h-4 px-1",
+                                        entry.isToolCallRatio && entry.toolReturn !== entry.toolCall && "bg-red-500/20 text-red-400"
+                                      )}
+                                    >
+                                      {entry.isToolCallRatio
+                                        ? `工具: ${entry.toolReturn} / ${entry.toolCall}`
+                                        : entry.type === 'result' ? `结果: ${entry.count}` :
+                                          entry.type === 'user_input' ? `用户: ${entry.count}` :
+                                          entry.type === 'text_output' ? `文本: ${entry.count}` :
+                                          `${entry.type}: ${entry.count}`
+                                      }
                                     </Badge>
                                   ))}
-                                  {sorted.length > 3 && (
+                                  {entries.length > 3 && (
                                     <span className="text-[10px] text-muted-foreground">
-                                      +{sorted.length - 3}
+                                      +{entries.length - 3}
                                     </span>
                                   )}
                                 </>
                               );
                             })()}
+
+                            {/* 显示 linked_agents 数量 */}
+                            {log.linked_agent_count > 0 && (
+                              <span className="flex items-center gap-1 text-[10px] text-violet-500 mt-1">
+                                <Bot className="w-3 h-3" />
+                                {log.linked_agent_count} 子Agent
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
+
+                    {/* 渲染 linked_agents 子项 */}
+                    {log.linked_agents && log.linked_agents.length > 0 && (
+                      <div className="pl-11 space-y-1 mt-1">
+                        {log.linked_agents.map((agent) => {
+                          const isAgentSelected = selectedLinkedAgent?.session_uuid === agent.session_uuid;
+                          return (
+                            <button
+                              key={agent.session_uuid}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                fetchLinkedAgentDetail(agent);
+                              }}
+                              className={cn(
+                                "w-full p-2 rounded-lg text-left transition-all text-xs",
+                                "hover:bg-violet-500/10",
+                                isAgentSelected && "bg-violet-500/20 border-l-2 border-violet-500"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-violet-500 shrink-0" />
+                                <span className="font-medium truncate">{agent.session_id}</span>
+                                <Badge variant="outline" className="text-[10px] h-4 ml-auto">
+                                  {agent.create_by}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 text-muted-foreground text-[10px] pl-6">
+                                <Clock className="w-3 h-3" />
+                                {formatTimestamp(agent.linked_at)}
+                              </div>
+                              {/* 显示关联会话的 type_counts */}
+                              {agent.type_counts && Object.keys(agent.type_counts).length > 0 && (
+                                <div className="flex items-center gap-1 mt-1 flex-wrap pl-6">
+                                  {(() => {
+                                    const excludedTypes = new Set([
+                                      'session_created', 'system_prompt', 'run_start',
+                                      'thinking', 'token_usage', 'error', 'node_transition',
+                                      'run_end', 'session_ended'
+                                    ]);
+                                    const priority: Record<string, number> = {
+                                      result: 1, tool_call: 2,
+                                      user_input: 3, text_output: 4,
+                                    };
+                                    const entries: Array<{ type: string; count: number; isToolCallRatio?: boolean; toolReturn?: number; toolCall?: number }> = [];
+                                    const toolCall = (agent.type_counts as Record<string, number>)['tool_call'] || 0;
+                                    const toolReturn = (agent.type_counts as Record<string, number>)['tool_return'] || 0;
+                                    if (toolCall > 0) {
+                                      entries.push({
+                                        type: 'tool_call',
+                                        count: toolCall,
+                                        isToolCallRatio: true,
+                                        toolReturn,
+                                        toolCall,
+                                      });
+                                    }
+                                    Object.entries(agent.type_counts)
+                                      .filter(([type]) => !excludedTypes.has(type) && type !== 'tool_call' && type !== 'tool_return')
+                                      .forEach(([type, count]) => {
+                                        if (priority[type] !== undefined) {
+                                          entries.push({ type, count });
+                                        }
+                                      });
+                                    entries.sort((a, b) => {
+                                      const priorityA = priority[a.type] ?? 99;
+                                      const priorityB = priority[b.type] ?? 99;
+                                      return priorityA - priorityB;
+                                    });
+                                    return (
+                                      <>
+                                        {entries.slice(0, 3).map((entry) => (
+                                          <Badge
+                                            key={entry.type}
+                                            variant="secondary"
+                                            className={cn(
+                                              "text-[10px] h-4 px-1",
+                                              entry.isToolCallRatio && entry.toolReturn !== entry.toolCall && "bg-red-500/20 text-red-400"
+                                            )}
+                                          >
+                                            {entry.isToolCallRatio
+                                              ? `工具: ${entry.toolReturn} / ${entry.toolCall}`
+                                              : entry.type === 'result' ? `结果: ${entry.count}` :
+                                                entry.type === 'user_input' ? `用户: ${entry.count}` :
+                                                entry.type === 'text_output' ? `文本: ${entry.count}` :
+                                                `${entry.type}: ${entry.count}`
+                                            }
+                                          </Badge>
+                                        ))}
+                                        {entries.length > 3 && (
+                                          <span className="text-[10px] text-muted-foreground">
+                                            +{entries.length - 3}
+                                          </span>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -840,7 +1155,42 @@ export default function AIHistoryPage() {
             {/* 时间线内容 */}
             <ScrollArea className="flex-1">
               <div className="p-4 sm:p-6">
-                {isLoadingDetail ? (
+                {/* 显示子Agent详情 */}
+                {isLoadingLinkedAgentDetail ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="flex gap-3">
+                        <Skeleton className="w-4 h-4 rounded shrink-0 mt-1.5" />
+                        <Skeleton className="h-8 rounded-xl w-[60%]" />
+                      </div>
+                    ))}
+                  </div>
+                ) : selectedLinkedAgent && linkedAgentDetail ? (
+                  <>
+                    {/* 子Agent头部 */}
+                    <div className="mb-4 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-5 h-5 text-violet-500" />
+                        <span className="font-medium text-sm">子Agent: {selectedLinkedAgent.session_id}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        UUID: {selectedLinkedAgent.session_uuid} | 创建者: {selectedLinkedAgent.create_by}
+                      </div>
+                    </div>
+                    <div className="space-y-0">
+                      {linkedAgentDetail.entries.map((entry, index) => (
+                        <TimelineEntry
+                          key={`${entry.type}-${entry.timestamp}-${index}`}
+                          entry={entry}
+                          t={t}
+                          personaName={selectedLinkedAgent.persona_name || 'SubAgent'}
+                          isLast={index === linkedAgentDetail.entries.length - 1}
+                          onAgentLinkedClick={fetchLinkedAgentDetail}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : isLoadingDetail ? (
                   <div className="space-y-4">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="flex gap-3">
@@ -858,6 +1208,7 @@ export default function AIHistoryPage() {
                         t={t}
                         personaName={personaName}
                         isLast={index === detail.entries.length - 1}
+                        onAgentLinkedClick={fetchLinkedAgentDetail}
                       />
                     ))}
                   </div>
