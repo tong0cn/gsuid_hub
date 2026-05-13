@@ -150,22 +150,35 @@ const CommitCard = memo(function CommitCard({
       <CardContent className="p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
-            <Badge
-              variant="outline"
-              className="font-mono text-xs whitespace-nowrap shrink-0"
-            >
-              {commit.short_hash}
-            </Badge>
-            {isLocalCurrent && (
-              <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
-                {t('gitUpdate.currentVersion')}
-              </Badge>
+            {isLocalCurrent ? (
+              <>
+                <Badge
+                  variant="default"
+                  className="font-mono text-xs whitespace-nowrap shrink-0"
+                >
+                  {commit.short_hash}
+                </Badge>
+                <Badge variant="outline" className="text-xs whitespace-nowrap shrink-0">
+                  {t('gitUpdate.currentVersion')}
+                </Badge>
+              </>
+            ) : (
+              <>
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs whitespace-nowrap shrink-0"
+                >
+                  {commit.short_hash}
+                </Badge>
+                {isRemoteLatest && (
+                  <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
+                    {t('gitUpdate.localVersion')}
+                  </Badge>
+                )}
+              </>
             )}
-            {isRemoteLatest && !isLocalCurrent && (
-              <Badge variant="default" className="text-xs whitespace-nowrap shrink-0">
-                {t('gitUpdate.localVersion')}
-              </Badge>
-            )}
+            
+            
           </div>
           {!isCurrent && (
             <Button
@@ -219,23 +232,34 @@ const CommitRow = memo(function CommitRow({
   return (
     <tr className={`border-b border-border/50 ${isLocalCurrent ? 'bg-primary/5' : ''}`}>
       <td className="p-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge
-            variant="outline"
-            className="font-mono text-xs whitespace-nowrap"
-          >
-            {commit.short_hash}
-          </Badge>
-          {isLocalCurrent && (
-            <Badge variant="default" className="text-xs whitespace-nowrap">
-              {t('gitUpdate.currentVersion')}
-            </Badge>
-          )}
-          {isRemoteLatest && !isLocalCurrent && (
-            <Badge variant="default" className="text-xs whitespace-nowrap">
-              {t('gitUpdate.localVersion')}
-            </Badge>
-          )}
+        <div className="flex flex-col items-center gap-2 flex-wrap">
+          {isLocalCurrent ? (
+              <>
+                <Badge
+                  variant="default"
+                  className="font-mono text-xs whitespace-nowrap"
+                >
+                  {commit.short_hash}
+                </Badge>
+                <Badge variant="outline" className="text-xs whitespace-nowrap">
+                  {t('gitUpdate.currentVersion')}
+                </Badge>
+              </>
+            ) : (
+              <>
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs whitespace-nowrap"
+                >
+                  {commit.short_hash}
+                </Badge>
+                {isRemoteLatest && (
+                  <Badge variant="default" className="text-xs whitespace-nowrap">
+                    {t('gitUpdate.localVersion')}
+                  </Badge>
+                )}
+              </>
+            )}
         </div>
       </td>
       <td className="p-3 max-w-[400px] truncate">{commit.message}</td>
@@ -925,11 +949,11 @@ export default function GitUpdatePage() {
               <table className="w-full caption-bottom text-sm min-w-[640px]">
                 <thead className="sticky top-0 bg-background z-10">
                   <tr className="border-b border-border/50">
-                    <th className="h-10 px-3 text-left font-medium text-muted-foreground w-28 whitespace-nowrap">{t('gitUpdate.commit')}</th>
+                    <th className="h-10 px-3 text-center font-medium text-muted-foreground w-24 whitespace-nowrap">{t('gitUpdate.commit')}</th>
                     <th className="h-10 px-3 text-left font-medium text-muted-foreground">{t('gitUpdate.message')}</th>
                     <th className="h-10 px-3 text-left font-medium text-muted-foreground w-28 whitespace-nowrap">{t('gitUpdate.author')}</th>
                     <th className="h-10 px-3 text-left font-medium text-muted-foreground w-44 whitespace-nowrap">{t('gitUpdate.date')}</th>
-                    <th className="h-10 px-3 text-right font-medium text-muted-foreground w-32 whitespace-nowrap">{t('common.actions')}</th>
+                    <th className="h-10 px-3 text-center font-medium text-muted-foreground w-32 whitespace-nowrap">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1060,7 +1084,7 @@ export default function GitUpdatePage() {
               onClick={handleForceUpdate}
               disabled={isForceUpdating}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            > 
               {isForceUpdating ? t('gitUpdate.loading') : t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
