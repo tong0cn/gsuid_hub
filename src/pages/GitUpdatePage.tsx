@@ -1010,7 +1010,7 @@ export default function GitUpdatePage() {
               {t('gitUpdate.checkoutConfirmTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left space-y-2">
-              <div>确认将 <strong>{getPluginDisplayName(selectedPlugin)}</strong> 回退到 commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{checkoutDialog.commit?.short_hash || ''}</code>？</div>
+              <div>确认将 <strong>{getPluginDisplayName(selectedPlugin)}</strong> 切换到 commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{checkoutDialog.commit?.short_hash || ''}</code>？</div>
               <div className="text-muted-foreground">
                 commit <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">{checkoutDialog.commit?.short_hash || ''}</code>：<span className="font-medium">{checkoutDialog.commit?.message || ''}</span>
               </div>
